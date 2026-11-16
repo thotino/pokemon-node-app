@@ -1,4 +1,4 @@
-import { BaseConnectorInterface } from "../types/connector.js";
+import { BaseConnectorInterface } from "../types/connector";
 import { Client } from "@elastic/elasticsearch";
 
 export default class PokeStoreConnector implements BaseConnectorInterface {
