@@ -1,6 +1,5 @@
 import PokeIndexRepository from "../repositories/PokeIndexRepository";
 import PokeRepository from "../repositories/PokeRepository";
-import { batchify } from "../utils/batchify";
 import mapping from "./mapping";
 import settings from "./settings";
 
@@ -17,5 +16,6 @@ export default class PokeIndexationService {
             await PokeIndexRepository.bulkIndex(indexName, pokemonBatch);
         }
         await PokeIndexRepository.flushIndex(indexName);
+        await PokeIndexRepository.setAlias(indexName, "latest_pokenode")
     }
 }

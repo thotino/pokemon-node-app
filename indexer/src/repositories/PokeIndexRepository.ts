@@ -13,6 +13,11 @@ export default class PokeIndexRepository {
             index: indexName,
         });
     }
+    static async setAlias(indexName: string, alias: string) {
+        await pokeStoreConnector.client.indices.updateAliases({
+            actions: [{ add: { index: indexName, alias } }],
+        });
+    }
     static async updateIndexWithMeta(
         indexName: string,
         { mapping, settings }: { mapping: object; settings: object },
@@ -40,7 +45,7 @@ export default class PokeIndexRepository {
         const response = await pokeStoreConnector.client.bulk({
             index: indexName,
             body: documents.flatMap(doc => [
-                { index: { _index: indexName } },
+                { index: { _index: indexName, _id: doc.id } },
                 doc,
             ]),
         });
