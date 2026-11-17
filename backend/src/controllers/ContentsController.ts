@@ -10,7 +10,7 @@ const ContentController = Router();
  * @group Contents
  */
 ContentController.get("/all", async (_req: Request, res: Response) => {
-  ContentService.buildPokemonExport()
+  ContentService.buildPokemonExport();
   return res.sendStatus(202);
 });
 
@@ -22,6 +22,9 @@ ContentController.get("/all", async (_req: Request, res: Response) => {
  */
 ContentController.get("/:pokemonId", async (_req: Request, res: Response) => {
   const { pokemonId } = _req.params;
+  if (typeof pokemonId != "string") {
+    return res.sendStatus(400);
+  }
   const { fileName, fileStream } =
     await ContentService.buildPokemonFile(pokemonId);
   res.set({

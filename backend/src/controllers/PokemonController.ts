@@ -4,7 +4,7 @@ import { PokemonSearchRequest } from "../types/search-request";
 
 const PokemonController = Router();
 const DEFAULT_OFFSET = 0;
-const DEFAULT_SIZE = 20
+const DEFAULT_SIZE = 20;
 PokemonController.get("/", async (req: Request, res: Response) => {
   const { q, types, from, size } = req.query;
 
@@ -26,6 +26,9 @@ PokemonController.get("/", async (req: Request, res: Response) => {
 
 PokemonController.get("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
+  if (typeof id != "string") {
+    return res.sendStatus(400);
+  }
 
   const pokemon = await PokeService.getById(id);
 
