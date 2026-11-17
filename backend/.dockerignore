@@ -1,0 +1,11 @@
+*
+!package.json
+!package-lock.json
+!config/default.js*
+!config/custom-environment-variables.js*
+!scripts
+!src
+!tsconfig.json
+!tsconfig.app.json
+src/*/__tests__
+src/**/*.md
