@@ -31,6 +31,16 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+  indexer:
+    build: ./indexer
+    profiles:
+      - "indexing"
+    environment:
+      POKE_STORE_URL: http://elasticsearch:9200
+      POKE_API_URL: https://pokeapi.co/api/v2
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
 volumes:
   esdata:
   api_exports:
