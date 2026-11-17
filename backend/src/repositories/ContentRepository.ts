@@ -1,5 +1,4 @@
 import json2md from "json2md";
-import Pokemon from "../entities/Pokemon";
 import { Readable } from "node:stream";
 import { IPokemon } from "../types/pokemon";
 
