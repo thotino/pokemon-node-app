@@ -2,6 +2,7 @@ import {
   AggregationsStringTermsAggregate,
   SearchRequest,
   SearchResponse,
+  SearchTotalHits,
 } from "@elastic/elasticsearch/lib/api/types";
 import { pokeStoreConnector } from "../connectors";
 import Pokemon from "../entities/Pokemon";
@@ -80,8 +81,8 @@ export default class PokeRepository {
     return {
       from: request.from,
       size: request.size,
-      total: response.hits.total,
-      items: response.hits.hits.map((hit) => hit._source),
+      total: (response.hits.total as SearchTotalHits)?.value ?? 0,
+      items: response.hits.hits.filter((hit) => hit._source != null).map((hit) => hit._source),
       aggregations: response.aggregations?.types.buckets,
     };
   }
