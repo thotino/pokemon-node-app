@@ -5,7 +5,7 @@ export default class PokeStoreConnector implements BaseConnectorInterface {
     readonly client: Client;
     constructor() {
         this.client = new Client({
-            node: "http://localhost:9200"
+            node: process.env.POKE_STORE_URL
         })
     }
     async connect() {
