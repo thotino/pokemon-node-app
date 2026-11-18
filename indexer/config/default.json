@@ -1,0 +1,13 @@
+{
+    "service": {
+        "name": "pokemon-node-indexer"
+    },
+    "connectors": {
+        "pokeStore": {
+            "url": "http://localhost:9200"
+        },
+        "pokeApi": {
+            "url": "http://pokemon-api-url"
+        }
+    }
+}

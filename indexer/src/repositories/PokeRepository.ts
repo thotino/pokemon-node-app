@@ -6,7 +6,6 @@ import {
     Evolution,
 } from "../types/pokemon";
 import axios from "axios";
-const POKEAPI_URL = "https://pokeapi.co/api/v2";
 const FETCH_BATCH_SIZE = 200;
 const ATTACKING_TYPES = [
     "normal",
@@ -79,9 +78,7 @@ const findChainLink = (
 
 export default class PokeRepository {
     static async fetchPokemon(url: string): Promise<Pokemon> {
-        const { data: pokemon } = await axios.get<ApiPokemon>(
-            url,
-        );
+        const { data: pokemon } = await axios.get<ApiPokemon>(url);
 
         const [types, { data: species }] = await Promise.all([
             Promise.all(

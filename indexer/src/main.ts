@@ -13,7 +13,7 @@ async function stopConnectors() {
 }
 async function main() {
     await startConnectors();
-    await PokeIndexationService.exec()
+    await PokeIndexationService.exec();
 }
 async function onTermination(error?: Error) {
     await stopConnectors();
@@ -21,7 +21,7 @@ async function onTermination(error?: Error) {
         logger.error(error);
     }
 }
-if (process.argv[1] === import.meta.filename) {
+if (require.main === module) {
     main()
         .then(() => onTermination())
         .catch(onTermination);

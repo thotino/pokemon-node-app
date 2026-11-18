@@ -1,0 +1,10 @@
+{
+    "connectors": {
+        "pokeStore": {
+            "url": "POKE_STORE_URL"
+        },
+        "pokeApi": {
+            "url": "POKE_API_URL"
+        }
+    }
+}

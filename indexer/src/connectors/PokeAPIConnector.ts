@@ -1,11 +1,15 @@
-import { BaseConnectorInterface } from "../types/connector.js";
+import { BaseConnectorInterface } from "../types/connector";
 import ky from "ky";
 
-const POKE_API_URL = process.env.POKE_API_URL;
+export type PokeAPIConnectorParams = {
+    url: string;
+};
 export default class PokeAPIConnector implements BaseConnectorInterface {
     readonly client;
-    constructor() {
-        this.client = ky.create({ prefix: POKE_API_URL });
+    #params: PokeAPIConnectorParams;
+    constructor(params: PokeAPIConnectorParams) {
+        this.#params = params;
+        this.client = ky.create({ prefix: this.#params.url });
     }
     async connect() {}
     async close() {}
