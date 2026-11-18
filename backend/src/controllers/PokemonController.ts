@@ -20,8 +20,8 @@ PokemonController.get("/", async (req: Request, res: Response) => {
         types: parsedTypes,
         keywords: typeof q === "string" ? q : undefined,
     };
-    const pokemons = await PokeService.search(pokeSearchReq);
-    return res.status(200).send({ pokemons });
+    const pokeSearchRes = await PokeService.search(pokeSearchReq);
+    return res.status(200).send({ pokemons: pokeSearchRes });
 });
 
 PokemonController.get("/:id", async (req: Request, res: Response) => {

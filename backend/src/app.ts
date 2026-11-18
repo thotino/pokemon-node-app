@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import config from "./config";
 
 import { createServer } from "http";
 import { PokemonController } from "./controllers/PokemonController";
@@ -39,6 +40,6 @@ app.get("/ping", (_req, res) => res.status(200).send("pong"));
 /**
  * Start server
  */
-httpServer.listen(process.env.PORT, () => {
-    console.log("Server started on port:", process.env.PORT);
+httpServer.listen(config.webserver.port, () => {
+    console.debug("Server started on port:", config.webserver.port);
 });

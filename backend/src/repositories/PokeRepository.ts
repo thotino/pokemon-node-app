@@ -7,7 +7,8 @@ import {
 import { pokeStoreConnector } from "../connectors";
 import Pokemon from "../entities/Pokemon";
 import { IPokemon } from "../types/pokemon";
-import { PokemonSearchRequest } from "../types/search-pokemons";
+import { ITypeBucket, PokemonSearchRequest, PokemonSearchResponse } from "../types/search-pokemons";
+import PokemonTypeFacet from "../entities/PokemonTypeFacet";
 type PokemonTypeAggregations = {
     types: AggregationsStringTermsAggregate;
 };
@@ -95,7 +96,7 @@ export default class PokeRepository {
             items: response.hits.hits
                 .filter(hit => hit._source != null)
                 .map(hit => new Pokemon(hit._source!)),
-            aggregations: response.aggregations?.types.buckets,
+            filters: (response.aggregations?.types.buckets as ITypeBucket[]).map((bucket: ITypeBucket) => PokemonTypeFacet.fromBucket(bucket)),
         };
     }
     static async getAll(request: PokemonSearchRequest) {
