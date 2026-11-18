@@ -24,13 +24,20 @@ services:
       PORT: 3001
       POKE_STORE_URL: http://elasticsearch:9200
       CHATBOT_URL: https://app.getvirtualbrain.com/
+      WORKING_DIR: /tmp
     ports:
       - "3001:3001"
     volumes:
-      - api_exports:/app/tmp/export-ru
+      - api_exports:/app/tmp/
     depends_on:
       elasticsearch:
         condition: service_healthy
+  web:
+    build: ./web-app
+    ports:
+      - "5173:8080"
+    depends_on:
+      - api
   indexer:
     build: ./indexer
     profiles:
