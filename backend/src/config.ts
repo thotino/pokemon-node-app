@@ -14,10 +14,10 @@ type WebserverConfig = {
 };
 
 type ConnectorsConfig = {
-    pokeStore: PokeStoreConnectorParams
-}
+    pokeStore: PokeStoreConnectorParams;
+};
 export default {
     service: conf.get("service") as ServiceConfig,
     webserver: conf.get("webserver") as WebserverConfig,
-    connectors: conf.get("connectors") as ConnectorsConfig
-}
+    connectors: conf.get("connectors") as ConnectorsConfig,
+};
