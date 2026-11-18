@@ -11,7 +11,7 @@ RUN npm ci --include=prod --include=dev
 
 COPY --chown=node:node . .
 
-RUN npm run build && npm prune --omit=dev && rm -rf src
+RUN npm run build && npm prune --omit=dev && rm -rf src tsconfig.json tsconfig.app.json
 
 FROM node:26-slim
 

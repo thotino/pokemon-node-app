@@ -1,6 +1,7 @@
 import { type Request, type Response, Router } from "express";
 import ContentService from "../services/ContentService";
 import { pipeline } from "node:stream/promises";
+import { randomUUID } from "node:crypto";
 
 const ContentController = Router();
 
@@ -10,8 +11,9 @@ const ContentController = Router();
  * @group Contents
  */
 ContentController.get("/all", async (_req: Request, res: Response) => {
-    ContentService.buildPokemonExport();
-    return res.sendStatus(202);
+    const jobId = randomUUID()
+    ContentService.buildPokemonExport(jobId);
+    return res.sendStatus(202).send({ job: "PokemonExport", jobId });
 });
 
 /**

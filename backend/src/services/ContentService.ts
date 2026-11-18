@@ -12,15 +12,16 @@ export default class ContentService {
         const pokemon = await PokeService.getById(pokemonId);
         return await ContentRepository.buildFile(pokemon);
     }
-    static async buildPokemonExport() {
-        await mkdir(config.settings.workingDir, { recursive: true });
+    static async buildPokemonExport(jobId: string) {
+        const exportPath = path.join(config.settings.workingDir, jobId)
+        await mkdir(exportPath, { recursive: true });
         for await (const pokemon of PokeRepository.getAllByScrolling(
             INDEX_NAME,
         )) {
             const { fileName, fileStream } =
                 await ContentRepository.buildFile(pokemon);
             const pokemonFilePath = path.join(
-                config.settings.workingDir,
+                exportPath,
                 fileName,
             );
             const pokemonFile = createWriteStream(pokemonFilePath);

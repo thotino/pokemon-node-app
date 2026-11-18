@@ -1,8 +1,8 @@
 import conf from "config";
 import { PokeStoreConnectorParams } from "./connectors/PokeStoreConnector";
 import { tmpdir } from "node:os";
-import { randomUUID } from "node:crypto";
 import path from "node:path";
+
 type ServiceConfig = {
     name: string;
     version: string;
@@ -31,7 +31,6 @@ export default {
         workingDir: path.join(
             conf.get("settings.workingDir") ?? tmpdir(),
             conf.get("service.name"),
-            randomUUID(),
         ),
     } as SettingsConfig,
 };
