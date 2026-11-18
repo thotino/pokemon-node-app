@@ -53,7 +53,7 @@ export default class PokeRepository {
             return { terms: { "apiTypes.name": request.types } };
         }
     }
-    static #buildAggs(request: PokemonSearchRequest) {
+    static #buildAggs() {
         return {
             types: {
                 terms: { field: "apiTypes.name", size: 30 },
@@ -85,7 +85,7 @@ export default class PokeRepository {
             ...(postFilterClause != null
                 ? { post_filter: postFilterClause }
                 : {}),
-            aggs: PokeRepository.#buildAggs(request),
+            aggs: PokeRepository.#buildAggs(),
             sort: PokeRepository.#buildSort(request),
         };
     }

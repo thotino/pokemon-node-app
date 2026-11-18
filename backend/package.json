@@ -6,7 +6,8 @@
 		"dev": "nodemon --config ./nodemon.json",
 		"lint": "eslint .",
 		"build": "tsc --project tsconfig.app.json",
-		"prettier": "prettier --write \"{,src/**/}*.{,ts}\""
+		"prettier": "prettier --write \"{,src/**/}*.{,ts}\"",
+		"test": "vitest run --passWithNoTests"
 	},
 	"dependencies": {
 		"@elastic/elasticsearch": "^9.5.1",

@@ -10,5 +10,8 @@
         "pokeStore": {
             "url": "http://localhost:9200"
         }
+    },
+    "settings": {
+        "wokingDir": "/tmp"
     }
 }

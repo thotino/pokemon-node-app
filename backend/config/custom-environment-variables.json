@@ -10,5 +10,8 @@
         "pokeStore": {
             "url": "POKE_STORE_URL"
         }
+    },
+    "settings": {
+        "workingDir": "WORKING_DIR"
     }
 }
