@@ -7,7 +7,11 @@ import {
 import { pokeStoreConnector } from "../connectors";
 import Pokemon from "../entities/Pokemon";
 import { IPokemon } from "../types/pokemon";
-import { ITypeBucket, PokemonSearchRequest, PokemonSearchResponse } from "../types/search-pokemons";
+import {
+    ITypeBucket,
+    PokemonSearchRequest,
+    PokemonSearchResponse,
+} from "../types/search-pokemons";
 import PokemonTypeFacet from "../entities/PokemonTypeFacet";
 type PokemonTypeAggregations = {
     types: AggregationsStringTermsAggregate;
@@ -88,7 +92,7 @@ export default class PokeRepository {
     static #parse(
         request: PokemonSearchRequest,
         response: SearchResponse<IPokemon, PokemonTypeAggregations>,
-    ) {
+    ): PokemonSearchResponse {
         return {
             from: request.from,
             size: request.size,
@@ -96,9 +100,25 @@ export default class PokeRepository {
             items: response.hits.hits
                 .filter(hit => hit._source != null)
                 .map(hit => new Pokemon(hit._source!)),
-            filters: (response.aggregations?.types.buckets as ITypeBucket[]).map((bucket: ITypeBucket) => PokemonTypeFacet.fromBucket(bucket)),
+            filters: PokeRepository.#parseFilters(request, response),
         };
     }
+    static #parseFilters(
+        request: PokemonSearchRequest,
+        response: SearchResponse<IPokemon, PokemonTypeAggregations>,
+    ): PokemonTypeFacet[] {
+        const buckets = (response.aggregations?.types.buckets ??
+            []) as ITypeBucket[];
+        const facets = buckets.map(bucket =>
+            PokemonTypeFacet.fromBucket(bucket),
+        );
+        const known = new Set(facets.map(facet => facet.name));
+        const missing = [...new Set(request.types ?? [])]
+            .filter(type => !known.has(type))
+            .map(type => new PokemonTypeFacet(type, 0));
+        return [...facets, ...missing];
+    }
+
     static async getAll(request: PokemonSearchRequest) {
         const query = PokeRepository.#buildSearchQuery(request);
         const result = await pokeStoreConnector.client.search<

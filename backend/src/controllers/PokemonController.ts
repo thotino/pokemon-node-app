@@ -12,12 +12,17 @@ PokemonController.get("/", async (req: Request, res: Response) => {
         typeof types === "string"
             ? [types]
             : Array.isArray(types)
-              ? types.filter((type): type is string => typeof type === "string")
+              ? types
+                    .filter(
+                        (type): type is string =>
+                            typeof type === "string" && type.length !== 0,
+                    )
+                    .map(type => type.trim())
               : undefined;
     const pokeSearchReq: PokemonSearchRequest = {
         from: typeof from === "string" ? parseInt(from) : DEFAULT_OFFSET,
         size: typeof size === "string" ? parseInt(size) : DEFAULT_SIZE,
-        types: parsedTypes,
+        types: parsedTypes?.length !== 0 ? parsedTypes : undefined,
         keywords: typeof q === "string" ? q : undefined,
     };
     const pokeSearchRes = await PokeService.search(pokeSearchReq);
