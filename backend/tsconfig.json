@@ -6,7 +6,9 @@
 	  "esModuleInterop": true,
 	  "outDir": "dist",
 	  "strict": true,
-	  "skipLibCheck": true
+	  "skipLibCheck": true,
+	  "ignoreDeprecations": "6.0",
+	  "rootDir": "./src"
 	},
 	"files": [],
 	"include": [],
