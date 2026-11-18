@@ -22,7 +22,7 @@ PokemonController.get("/", async (req: Request, res: Response) => {
     const pokeSearchReq: PokemonSearchRequest = {
         from: typeof from === "string" ? parseInt(from) : DEFAULT_OFFSET,
         size: typeof size === "string" ? parseInt(size) : DEFAULT_SIZE,
-        types: parsedTypes?.length !== 0 ? parsedTypes : undefined,
+        types: Array.isArray(parsedTypes) && parsedTypes.length !== 0 ? parsedTypes : undefined,
         keywords: typeof q === "string" ? q : undefined,
     };
     const pokeSearchRes = await PokeService.search(pokeSearchReq);

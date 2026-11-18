@@ -1,0 +1,14 @@
+{
+    "service": {},
+    "webserver": {
+        "port": {
+            "__name": "PORT",
+            "__format": "number"
+        }
+    },
+    "connectors": {
+        "pokeStore": {
+            "url": "POKE_STORE_URL"
+        }
+    }
+}
