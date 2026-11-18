@@ -10,8 +10,8 @@ const ContentController = Router();
  * @group Contents
  */
 ContentController.get("/all", async (_req: Request, res: Response) => {
-  ContentService.buildPokemonExport();
-  return res.sendStatus(202);
+    ContentService.buildPokemonExport();
+    return res.sendStatus(202);
 });
 
 /**
@@ -21,17 +21,17 @@ ContentController.get("/all", async (_req: Request, res: Response) => {
  * @param {string} id.path.required - Pokemon ID
  */
 ContentController.get("/:pokemonId", async (_req: Request, res: Response) => {
-  const { pokemonId } = _req.params;
-  if (typeof pokemonId != "string") {
-    return res.sendStatus(400);
-  }
-  const { fileName, fileStream } =
-    await ContentService.buildPokemonFile(pokemonId);
-  res.set({
-    "Content-Type": "application/octet-stream",
-    "Content-Disposition": `attachment; filename=${fileName}`,
-  });
-  return await pipeline(fileStream, res);
+    const { pokemonId } = _req.params;
+    if (typeof pokemonId != "string") {
+        return res.sendStatus(400);
+    }
+    const { fileName, fileStream } =
+        await ContentService.buildPokemonFile(pokemonId);
+    res.set({
+        "Content-Type": "application/octet-stream",
+        "Content-Disposition": `attachment; filename=${fileName}`,
+    });
+    return await pipeline(fileStream, res);
 });
 
 export { ContentController };

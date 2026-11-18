@@ -13,11 +13,11 @@ const httpServer = createServer(app);
 
 app.set("trust proxy", 1);
 app.use(
-  cors({
-    origin: true,
-    credentials: true,
-    exposedHeaders: ["set-cookie"],
-  }),
+    cors({
+        origin: true,
+        credentials: true,
+        exposedHeaders: ["set-cookie"],
+    }),
 );
 app.set("query parser", "simple");
 
@@ -40,5 +40,5 @@ app.get("/ping", (_req, res) => res.status(200).send("pong"));
  * Start server
  */
 httpServer.listen(process.env.PORT, () => {
-  console.log("Server started on port:", process.env.PORT);
+    console.log("Server started on port:", process.env.PORT);
 });
