@@ -1,5 +1,14 @@
 {
-    "service": {},
-    "webserver": {},
-    "externalServices": {}
+    "service": {
+        "name": "pokemon-node-api",
+        "version": "1.0.0"
+    },
+    "webserver": {
+        "port": "3001"
+    },
+    "connectors": {
+        "pokeStore": {
+            "url": "http://localhost:9200"
+        }
+    }
 }

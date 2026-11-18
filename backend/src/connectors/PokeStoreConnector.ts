@@ -6,11 +6,17 @@ type IndexScrollParams = {
     size?: number;
     scroll?: string;
 };
+export type PokeStoreConnectorParams = {
+    url: string
+}
+const POKE_STORE_URL = process.env.POKE_STORE_URL ?? "http://localhost:9200";
 export default class PokeStoreConnector implements BaseConnectorInterface {
     readonly client: Client;
-    constructor() {
+    #params: PokeStoreConnectorParams
+    constructor(params: PokeStoreConnectorParams) {
+        this.#params = params
         this.client = new Client({
-            node: process.env.POKE_STORE_URL,
+            node: this.#params.url,
         });
     }
     async connect() {
