@@ -9,7 +9,12 @@ export default class PokeAPIConnector implements BaseConnectorInterface {
     #params: PokeAPIConnectorParams;
     constructor(params: PokeAPIConnectorParams) {
         this.#params = params;
-        this.client = ky.create({ prefix: this.#params.url });
+        this.client = ky.create({
+            baseUrl: PokeAPIConnector.#withTrailingSlash(this.#params.url),
+        });
+    }
+    static #withTrailingSlash(url: string): string {
+        return url.endsWith("/") ? url : `${url}/`;
     }
     async connect() {}
     async close() {}
