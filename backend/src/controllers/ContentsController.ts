@@ -11,7 +11,7 @@ const ContentController = Router();
  * @group Contents
  */
 ContentController.get("/all", async (_req: Request, res: Response) => {
-    const jobId = randomUUID()
+    const jobId = randomUUID();
     ContentService.buildPokemonExport(jobId);
     return res.sendStatus(202).send({ job: "PokemonExport", jobId });
 });
