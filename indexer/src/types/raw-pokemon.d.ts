@@ -1,4 +1,8 @@
-interface ApiPokemon {
+export interface NamedResource {
+    name: string;
+    url: string;
+}
+export interface ApiPokemon {
     id: number;
     name: string;
     sprites: {
@@ -11,7 +15,7 @@ interface ApiPokemon {
     species: NamedResource;
 }
 
-interface ApiType {
+export interface ApiType {
     name: string;
     damage_relations: {
         double_damage_from: NamedResource[];
@@ -23,18 +27,18 @@ interface ApiType {
     };
 }
 
-interface ApiSpecies {
+export interface ApiSpecies {
     name: string;
     generation: NamedResource;
     evolves_from_species: NamedResource | null;
     evolution_chain: { url: string };
 }
 
-interface ApiChainLink {
+export interface ApiChainLink {
     species: NamedResource;
     evolves_to: ApiChainLink[];
 }
 
-interface ApiEvolutionChain {
+export interface ApiEvolutionChain {
     chain: ApiChainLink;
 }
