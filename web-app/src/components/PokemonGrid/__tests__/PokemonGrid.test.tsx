@@ -6,6 +6,7 @@ import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { bulbasaur, typeFacets } from "../../../test/fixtures";
 import type { IPokemon } from "../../../types/pokemon";
+import { BattleSelectionProvider } from "../../Battle/BattleSelectionProvider";
 import { PokemonGrid } from "../PokemonGrid";
 
 const SIZE = 3;
@@ -52,7 +53,9 @@ function renderGrid() {
     });
     return render(
         <QueryClientProvider client={client}>
-            <PokemonGrid size={SIZE} />
+            <BattleSelectionProvider>
+                <PokemonGrid size={SIZE} />
+            </BattleSelectionProvider>
         </QueryClientProvider>,
     );
 }
@@ -288,5 +291,31 @@ describe("PokemonGrid search and type filter", () => {
         });
 
         expect(screen.getByRole("searchbox")).toHaveValue("bulb");
+    });
+
+    it("selects up to 2 fighters and disables the other cards", async () => {
+        renderGrid();
+        await screen.findByRole("heading", { name: "pokemon-1" });
+
+        const addButtons = screen.getAllByRole("button", {
+            name: "Add to battle",
+        });
+        await userEvent.click(addButtons[0]);
+        await userEvent.click(addButtons[1]);
+
+        expect(
+            screen.getAllByRole("button", { name: "Remove from battle" }),
+        ).toHaveLength(2);
+        expect(
+            screen.getByRole("button", { name: "Add to battle" }),
+        ).toBeDisabled();
+
+        await userEvent.click(
+            screen.getAllByRole("button", { name: "Remove from battle" })[0],
+        );
+
+        expect(
+            screen.getAllByRole("button", { name: "Add to battle" })[0],
+        ).toBeEnabled();
     });
 });

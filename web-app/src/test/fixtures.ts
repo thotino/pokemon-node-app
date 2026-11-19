@@ -23,3 +23,21 @@ export const bulbasaur: IPokemon = {
     },
     apiTypes: [{ name: "Plante", image: "https://example.test/plante.png" }],
 };
+
+export const charmander: IPokemon = {
+    id: 4,
+    pokedexId: 4,
+    name: "Salamèche",
+    image: "https://example.test/4.png",
+    sprite: "https://example.test/4-sprite.png",
+    slug: "salameche",
+    stats: {
+        HP: 39,
+        attack: 52,
+        defense: 43,
+        special_attack: 60,
+        special_defense: 50,
+        speed: 65,
+    },
+    apiTypes: [{ name: "Feu", image: "https://example.test/feu.png" }],
+};

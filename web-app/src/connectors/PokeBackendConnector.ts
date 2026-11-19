@@ -1,5 +1,6 @@
 import ky, { type KyInstance } from "ky";
-import { BaseConnectorInterface } from "../types/connector";
+import type { BaseConnectorInterface } from "../types/connector";
+import type { StreamRequestOptions } from "../types/stream-request";
 
 export interface RequestOptions {
     searchParams?: Record<string, string | number> | URLSearchParams;
@@ -23,6 +24,19 @@ export class PokeBackendConnector implements BaseConnectorInterface {
         { searchParams, signal }: RequestOptions = {},
     ): Promise<T> {
         return this.#client.get(path, { searchParams, signal }).json<T>();
+    }
+
+    postStream(
+        path: string,
+        json: unknown,
+        { signal, timeout }: StreamRequestOptions = {},
+    ): Promise<Response> {
+        return this.#client.post(path, {
+            json,
+            signal,
+            timeout,
+            headers: { Accept: "text/plain" },
+        });
     }
     async connect() {}
     async close() {}

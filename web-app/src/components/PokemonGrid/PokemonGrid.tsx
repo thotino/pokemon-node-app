@@ -1,10 +1,14 @@
 import { type ReactNode, useCallback, useEffect, useRef } from "react";
+import type { Pokemon } from "../../entities/Pokemon";
+import { useBattleSelection } from "../../hooks/useBattleSelection";
 import { PokemonApiRepository } from "../../repositories/PokemonApiRepository";
+import { BattleSelectionService } from "../../services/BattleSelectionService";
 import { SearchParamService } from "../../services/SearchParamService";
 import { usePageParam } from "../../hooks/usePageParam";
 import { usePokemons } from "../../hooks/usePokemons";
 import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion";
 import { useSearchCriteria } from "../../hooks/useSearchCriteria";
+import { ButtonStyles } from "../ButtonStyles";
 import { Pagination } from "../Pagination";
 import { CardSkeleton } from "./CardSkeleton";
 import { CardStyles } from "./CardStyles";
@@ -14,9 +18,6 @@ import { PokemonToolbar } from "./PokemonToolbar";
 interface PokemonGridProps {
     size?: number;
 }
-
-const ACTION_BUTTON_CLASSES =
-    "rounded-full bg-amber-400 px-5 py-2 font-semibold text-slate-900 shadow hover:bg-amber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 disabled:opacity-60";
 
 function StatusMessage({ children }: { children: ReactNode }) {
     return (
@@ -37,6 +38,12 @@ export function PokemonGrid({
     const isFiltered = SearchParamService.isActive(criteria);
     const sectionRef = useRef<HTMLElement>(null);
     const reduceMotion = usePrefersReducedMotion();
+    const selection = useBattleSelection();
+    const isFighter = useCallback(
+        (pokemon: Pokemon) =>
+            BattleSelectionService.has(selection.fighters, pokemon),
+        [selection.fighters],
+    );
 
     const handlePageChange = useCallback(
         (nextPage: number) => {
@@ -120,7 +127,7 @@ export function PokemonGrid({
                         type="button"
                         onClick={() => void refetch()}
                         disabled={isFetching}
-                        className={ACTION_BUTTON_CLASSES}
+                        className={ButtonStyles.PRIMARY}
                     >
                         {isFetching ? "Retrying…" : "Retry"}
                     </button>
@@ -139,7 +146,7 @@ export function PokemonGrid({
                         <button
                             type="button"
                             onClick={handleReset}
-                            className={ACTION_BUTTON_CLASSES}
+                            className={ButtonStyles.PRIMARY}
                         >
                             Clear search and filters
                         </button>
@@ -159,7 +166,12 @@ export function PokemonGrid({
                 aria-busy={isPlaceholderData}
                 className={`w-full px-4 py-6 transition-opacity focus:outline-none ${isPlaceholderData ? "opacity-60" : ""}`}
             >
-                <PokemonCardList pokemons={data.items} />
+                <PokemonCardList
+                    pokemons={data.items}
+                    isSelected={isFighter}
+                    canSelect={!selection.isFull}
+                    onToggleSelect={selection.toggle}
+                />
             </section>
             <Pagination
                 page={page}

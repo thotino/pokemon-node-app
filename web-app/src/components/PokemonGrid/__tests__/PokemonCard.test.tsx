@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 import { Pokemon } from "../../../entities/Pokemon";
 import { bulbasaur } from "../../../test/fixtures";
 import { CardSkeleton } from "../CardSkeleton";
@@ -39,6 +40,58 @@ describe("PokemonCard", () => {
 
         const placeholder = screen.getByRole("img", { name: "Bulbizarre" });
         expect(placeholder.tagName).toBe("DIV");
+    });
+});
+
+describe("PokemonCard battle selection", () => {
+    const pokemon = new Pokemon(bulbasaur);
+
+    it("has no battle button without handler", () => {
+        render(<PokemonCard pokemon={pokemon} />);
+
+        expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    });
+
+    it("adds the pokemon to the battle", async () => {
+        const onToggleSelect = vi.fn();
+        render(
+            <PokemonCard pokemon={pokemon} onToggleSelect={onToggleSelect} />,
+        );
+
+        await userEvent.click(
+            screen.getByRole("button", { name: "Add to battle" }),
+        );
+
+        expect(onToggleSelect).toHaveBeenCalledWith(pokemon);
+    });
+
+    it("offers to remove a selected pokemon even when the team is full", () => {
+        render(
+            <PokemonCard
+                pokemon={pokemon}
+                isSelected
+                canSelect={false}
+                onToggleSelect={vi.fn()}
+            />,
+        );
+
+        expect(
+            screen.getByRole("button", { name: "Remove from battle" }),
+        ).toBeEnabled();
+    });
+
+    it("disables the button when the team is full", () => {
+        render(
+            <PokemonCard
+                pokemon={pokemon}
+                canSelect={false}
+                onToggleSelect={vi.fn()}
+            />,
+        );
+
+        expect(
+            screen.getByRole("button", { name: "Add to battle" }),
+        ).toBeDisabled();
     });
 });
 

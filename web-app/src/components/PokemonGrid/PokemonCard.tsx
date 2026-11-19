@@ -1,21 +1,30 @@
 import { useState } from "react";
 import type { Pokemon } from "../../entities/Pokemon";
 import { useTilt } from "../../hooks/useTilt";
+import { ButtonStyles } from "../ButtonStyles";
 import { CardStyles } from "./CardStyles";
 import { StatBar } from "./StatBar";
 
 interface PokemonCardProps {
     pokemon: Pokemon;
+    isSelected?: boolean;
+    canSelect?: boolean;
+    onToggleSelect?: (pokemon: Pokemon) => void;
 }
 
-export function PokemonCard({ pokemon }: PokemonCardProps) {
+export function PokemonCard({
+    pokemon,
+    isSelected = false,
+    canSelect = true,
+    onToggleSelect,
+}: PokemonCardProps) {
     const tilt = useTilt();
     const [imageFailed, setImageFailed] = useState(false);
 
     return (
         <article
             aria-labelledby={`pokemon-${pokemon.id}-name`}
-            className={`${CardStyles.FRAME} will-change-transform hover:outline-dashed hover:outline-orange-400`}
+            className={`${CardStyles.FRAME} will-change-transform ${isSelected ? "outline outline-4 outline-orange-500" : "hover:outline-dashed hover:outline-orange-400"}`}
             style={tilt.style}
             onPointerMove={tilt.onPointerMove}
             onPointerLeave={tilt.onPointerLeave}
@@ -76,6 +85,17 @@ export function PokemonCard({ pokemon }: PokemonCardProps) {
                         <StatBar key={stat.key} stat={stat} />
                     ))}
                 </dl>
+
+                {onToggleSelect && (
+                    <button
+                        type="button"
+                        onClick={() => onToggleSelect(pokemon)}
+                        disabled={!isSelected && !canSelect}
+                        className={`${ButtonStyles.SMALL} ${isSelected ? "bg-orange-500 text-white hover:bg-orange-400" : "bg-amber-400 text-slate-900 hover:bg-amber-300"}`}
+                    >
+                        {isSelected ? "Remove from battle" : "Add to battle"}
+                    </button>
+                )}
             </div>
         </article>
     );
