@@ -1,24 +1,39 @@
+import { ErrorCause } from "@elastic/elasticsearch/lib/api/types";
 import { pokeStoreConnector } from "../connectors/index";
+import { AliasAction, IndexWithAliases } from "../types/index-alias";
 import { Pokemon } from "../types/pokemon";
 
 export default class PokeIndexRepository {
-    static async createIndex(indexName: string) {
-        return await pokeStoreConnector.client.indices.create({
-            index: indexName,
-            settings: { number_of_shards: 1 },
+    static async getIndicesWithAliases(
+        pattern: string,
+    ): Promise<IndexWithAliases[]> {
+        const response = await pokeStoreConnector.client.indices.resolveIndex({
+            name: pattern,
+            expand_wildcards: "open",
         });
+        return response.indices.map(({ name, aliases }) => ({
+            name,
+            aliases: aliases ?? [],
+        }));
+    }
+    static async swapAliases(actions: AliasAction[]) {
+        if (actions.length === 0) {
+            return;
+        }
+        await pokeStoreConnector.client.indices.updateAliases({ actions });
+    }
+    static async deleteIndices(indexNames: string[]) {
+        if (indexNames.length === 0) {
+            return;
+        }
+        await pokeStoreConnector.client.indices.delete({ index: indexNames });
     }
     static async flushIndex(indexName: string) {
         return await pokeStoreConnector.client.indices.flush({
             index: indexName,
         });
     }
-    static async setAlias(indexName: string, alias: string) {
-        await pokeStoreConnector.client.indices.updateAliases({
-            actions: [{ add: { index: indexName, alias } }],
-        });
-    }
-    static async updateIndexWithMeta(
+    static async createIndexWithMeta(
         indexName: string,
         { mapping, settings }: { mapping: object; settings: object },
     ) {
@@ -41,6 +56,14 @@ export default class PokeIndexRepository {
             });
         }
     }
+    static #chainESErrors(esError: ErrorCause): Error {
+        const message = `[${esError.type}] ${esError.reason}`;
+        const cause =
+            esError.caused_by != null
+                ? PokeIndexRepository.#chainESErrors(esError.caused_by)
+                : undefined;
+        return new Error(message, { cause });
+    }
     static async bulkIndex(indexName: string, documents: Pokemon[]) {
         const response = await pokeStoreConnector.client.bulk({
             index: indexName,
@@ -49,6 +72,14 @@ export default class PokeIndexRepository {
                 doc,
             ]),
         });
+        if (response.errors) {
+            const errors = response.items
+                .filter(item => item.index?.error != null)
+                .map(item =>
+                    PokeIndexRepository.#chainESErrors(item.index!.error!),
+                );
+            throw new AggregateError(errors, "Error in bulk indexing");
+        }
         return response;
     }
 }

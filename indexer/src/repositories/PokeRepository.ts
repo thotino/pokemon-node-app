@@ -5,7 +5,13 @@ import {
     Pokemon,
     Evolution,
 } from "../types/pokemon";
-import axios from "axios";
+import {
+    ApiPokemon,
+    ApiType,
+    ApiChainLink,
+    ApiSpecies,
+    ApiEvolutionChain,
+} from "../types/raw-pokemon";
 const FETCH_BATCH_SIZE = 200;
 const ATTACKING_TYPES = [
     "normal",
@@ -78,22 +84,24 @@ const findChainLink = (
 
 export default class PokeRepository {
     static async fetchPokemon(url: string): Promise<Pokemon> {
-        const { data: pokemon } = await axios.get<ApiPokemon>(url);
+        const pokemon = await pokeApiConnector.client
+            .get<ApiPokemon>(url)
+            .json();
 
-        const [types, { data: species }] = await Promise.all([
+        const [types, species] = await Promise.all([
             Promise.all(
                 [...pokemon.types]
                     .sort((a, b) => a.slot - b.slot)
                     .map(({ type }) =>
-                        axios.get<ApiType>(type.url).then(r => r.data),
+                        pokeApiConnector.client.get<ApiType>(type.url).json(),
                     ),
             ),
-            axios.get<ApiSpecies>(pokemon.species.url),
+            pokeApiConnector.client.get<ApiSpecies>(pokemon.species.url).json(),
         ]);
 
-        const { data: evolutionChain } = await axios.get<ApiEvolutionChain>(
-            species.evolution_chain.url,
-        );
+        const evolutionChain = await pokeApiConnector.client
+            .get<ApiEvolutionChain>(species.evolution_chain.url)
+            .json();
 
         const apiEvolutions: Evolution[] = (
             findChainLink(evolutionChain.chain, species.name)?.evolves_to ?? []
