@@ -1,12 +1,13 @@
+import { INDEX_PREFIX } from "../constants";
+import { logger } from "../logger";
 import PokeIndexRepository from "../repositories/PokeIndexRepository";
 import PokeRepository from "../repositories/PokeRepository";
+import AliasRotationService from "./AliasRotationService";
 import mapping from "./mapping";
 import settings from "./settings";
-const INDEX_ALIAS = "latest_pokenode";
 export default class PokeIndexationService {
-    static async exec() {
-        const indexName = `pokenode_${Date.now()}`;
-        await PokeIndexRepository.updateIndexWithMeta(indexName, {
+    static async #fillIndex(indexName: string) {
+        await PokeIndexRepository.createIndexWithMeta(indexName, {
             mapping,
             settings,
         });
@@ -15,6 +16,25 @@ export default class PokeIndexationService {
             await PokeIndexRepository.bulkIndex(indexName, pokemonBatch);
         }
         await PokeIndexRepository.flushIndex(indexName);
-        await PokeIndexRepository.setAlias(indexName, INDEX_ALIAS);
+    }
+    static async #discardIndex(indexName: string) {
+        try {
+            await PokeIndexRepository.deleteIndices([indexName]);
+        } catch (error) {
+            logger.warn("Partial index deletion failed", {
+                index: indexName,
+                error,
+            });
+        }
+    }
+    static async exec() {
+        const indexName = `${INDEX_PREFIX}${Date.now()}`;
+        try {
+            await PokeIndexationService.#fillIndex(indexName);
+        } catch (error) {
+            await PokeIndexationService.#discardIndex(indexName);
+            throw error;
+        }
+        await AliasRotationService.rotate(indexName);
     }
 }
