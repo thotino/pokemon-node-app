@@ -23,7 +23,8 @@ services:
       NODE_ENV: development
       PORT: 3001
       POKE_STORE_URL: http://elasticsearch:9200
-      CHATBOT_URL: https://app.getvirtualbrain.com/
+      CHATBOT_URL: https://chatbot-api.getvirtualbrain.com
+      CHATBOT_API_KEY: vb_ak_c74342c33dcdb9bbb77307ebf2ff358c7737b53b
       WORKING_DIR: /tmp
     ports:
       - "3001:3001"

@@ -5,7 +5,6 @@ import { chatbotConnector } from "../connectors";
 import ChatbotConnector from "../connectors/ChatbotConnector";
 import ChatbotRateLimitError from "../errors/ChatbotRateLimitError";
 import {
-    ChatbotQueryRequest,
     ChatbotQueryResult,
     ChatbotTokenResponse,
     IChatbotTokens,
@@ -26,12 +25,14 @@ export default class BattleRepository {
         return BattleRepository.#toTokens(response);
     }
 
-    static async refreshTokens(refreshToken: string): Promise<IChatbotTokens> {
+    static async refreshTokens(
+        current: IChatbotTokens,
+    ): Promise<IChatbotTokens> {
         const response = (await chatbotConnector.client
             .post("v1/auth/api-key/refresh", {
                 json: {
-                    refreshToken,
-                    chatbotId: chatbotConnector.chatbotId,
+                    refreshToken: current.refreshToken,
+                    chatbotId: current.chatbotId,
                 },
             })
             .json()) as ChatbotTokenResponse;
@@ -78,31 +79,30 @@ export default class BattleRepository {
         signal: AbortSignal,
         sessionId?: string,
     ): Promise<Response> {
-        const accessToken = await BattleRepository.#getAccessToken();
-        const body: ChatbotQueryRequest = { query: prompt };
+        const tokens = await BattleRepository.#getTokens();
         return chatbotConnector
             .withSession(sessionId)
             .post(
-                `v1/open-completion/${encodeURIComponent(chatbotConnector.chatbotId)}/query`,
+                `v1/open-completion/${encodeURIComponent(tokens.chatbotId)}/query`,
                 {
-                    json: body,
-                    headers: { Authorization: `Bearer ${accessToken}` },
+                    json: { query: prompt },
+                    headers: { Authorization: `Bearer ${tokens.accessToken}` },
                     signal,
                 },
             );
     }
 
-    static async #getAccessToken(): Promise<string> {
+    static async #getTokens(): Promise<IChatbotTokens> {
         const tokens = BattleRepository.#tokens;
         if (tokens != null && BattleRepository.#isValid(tokens)) {
-            return tokens.accessToken;
+            return tokens;
         }
         BattleRepository.#pendingAuth ??= BattleRepository.#authenticate(
             tokens,
         ).finally(() => {
             BattleRepository.#pendingAuth = undefined;
         });
-        return (await BattleRepository.#pendingAuth).accessToken;
+        return BattleRepository.#pendingAuth;
     }
 
     static async #authenticate(
@@ -111,9 +111,9 @@ export default class BattleRepository {
         const tokens =
             current == null
                 ? await BattleRepository.exchangeApiKey()
-                : await BattleRepository.refreshTokens(
-                      current.refreshToken,
-                  ).catch(() => BattleRepository.exchangeApiKey());
+                : await BattleRepository.refreshTokens(current).catch(() =>
+                      BattleRepository.exchangeApiKey(),
+                  );
         BattleRepository.#tokens = tokens;
         return tokens;
     }

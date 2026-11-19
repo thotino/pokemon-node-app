@@ -29,6 +29,8 @@ node_modules
 # Env
 .env
 .env.scripts
+**/config/local.json
+**/config/local-*.json
 
 # Docker
 .docker

@@ -12,7 +12,6 @@ vi.mock("../../connectors", async () => {
             {
                 url: "https://chatbot.test",
                 apiKey: "vb_ak_test",
-                chatbotId: "bot-1",
             },
             { limit: 0, maxRetryAfterMs: 0, backoffLimitMs: 0 },
         ),
@@ -22,7 +21,8 @@ vi.mock("../../connectors", async () => {
 const NOW = new Date("2026-11-19T10:00:00Z");
 const TOKEN_URL = "https://chatbot.test/v1/auth/api-key/token";
 const REFRESH_URL = "https://chatbot.test/v1/auth/api-key/refresh";
-const QUERY_URL = "https://chatbot.test/v1/open-completion/bot-1/query";
+const CHATBOT_ID = "bot-from-token";
+const QUERY_URL = `https://chatbot.test/v1/open-completion/${CHATBOT_ID}/query`;
 
 type SentRequest = {
     url: string;
@@ -37,12 +37,12 @@ let sent: SentRequest[] = [];
 let tokenCount = 0;
 let refreshCount = 0;
 
-function tokenResponse(prefix: string, count: number) {
+function tokenResponse(prefix: string, count: number, chatbotId = CHATBOT_ID) {
     return Response.json({
         accessToken: `${prefix}-access-${count}`,
         refreshToken: `${prefix}-refresh-${count}`,
         expiresIn: 3600,
-        chatbotId: "bot-1",
+        chatbotId,
     });
 }
 
@@ -124,7 +124,7 @@ describe("BattleRepository", () => {
             expect(tokens).toEqual({
                 accessToken: "token-access-1",
                 refreshToken: "token-refresh-1",
-                chatbotId: "bot-1",
+                chatbotId: CHATBOT_ID,
                 expiresAt: NOW.getTime() + 3_600_000,
             });
         });
@@ -134,12 +134,17 @@ describe("BattleRepository", () => {
         it("sends the refresh token and the chatbot id", async () => {
             route();
 
-            const tokens = await BattleRepository.refreshTokens("old-refresh");
+            const tokens = await BattleRepository.refreshTokens({
+                accessToken: "old-access",
+                refreshToken: "old-refresh",
+                chatbotId: CHATBOT_ID,
+                expiresAt: NOW.getTime(),
+            });
 
             const [request] = requestsTo(REFRESH_URL);
             expect(request.body).toEqual({
                 refreshToken: "old-refresh",
-                chatbotId: "bot-1",
+                chatbotId: CHATBOT_ID,
             });
             expect(tokens.refreshToken).toBe("refreshed-refresh-1");
         });
@@ -220,6 +225,18 @@ describe("BattleRepository", () => {
             expect(
                 requestsTo(QUERY_URL).at(-1)!.headers.get("authorization"),
             ).toBe("Bearer refreshed-access-2");
+        });
+
+        it("follows the chatbot id returned by the latest token rotation", async () => {
+            route(undefined, () => tokenResponse("refreshed", 1, "bot-2"));
+
+            await query();
+            vi.setSystemTime(NOW.getTime() + 3_600_000);
+            await query();
+
+            expect(sent.at(-1)!.url).toBe(
+                "https://chatbot.test/v1/open-completion/bot-2/query",
+            );
         });
 
         it("refreshes tokens shortly before they expire", async () => {

@@ -33,9 +33,6 @@ export default class ChatbotConnector implements BaseConnectorInterface {
     get apiKey() {
         return this.#params.apiKey;
     }
-    get chatbotId() {
-        return this.#params.chatbotId;
-    }
     async connect() {}
     async close() {}
 

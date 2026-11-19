@@ -12,8 +12,7 @@
         },
         "chatbot": {
             "url": "https://chatbot-api.getvirtualbrain.com",
-            "apiKey": "",
-            "chatbotId": ""
+            "apiKey": ""
         }
     },
     "settings": {

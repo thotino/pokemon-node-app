@@ -5,7 +5,6 @@ import ChatbotConnector from "../ChatbotConnector";
 const PARAMS = {
     url: "https://chatbot.test",
     apiKey: "vb_ak_test",
-    chatbotId: "bot-1",
 };
 const RETRY = { limit: 2, maxRetryAfterMs: 2000, backoffLimitMs: 100 };
 
@@ -24,10 +23,9 @@ describe("ChatbotConnector", () => {
         vi.useRealTimers();
     });
 
-    it("exposes the api key and the chatbot id", () => {
+    it("exposes the api key", () => {
         const connector = new ChatbotConnector(PARAMS, RETRY);
         expect(connector.apiKey).toBe("vb_ak_test");
-        expect(connector.chatbotId).toBe("bot-1");
     });
 
     it("resolves paths against the base url", async () => {

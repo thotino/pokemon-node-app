@@ -3,7 +3,6 @@ import { Readable } from "node:stream";
 export type ChatbotConnectorParams = {
     url: string;
     apiKey: string;
-    chatbotId: string;
 };
 
 export type ChatbotRetrySettings = {

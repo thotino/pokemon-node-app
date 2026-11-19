@@ -12,8 +12,7 @@
         },
         "chatbot": {
             "url": "CHATBOT_URL",
-            "apiKey": "CHATBOT_API_KEY",
-            "chatbotId": "CHATBOT_ID"
+            "apiKey": "CHATBOT_API_KEY"
         }
     },
     "settings": {
