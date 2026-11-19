@@ -9,9 +9,28 @@
     "connectors": {
         "pokeStore": {
             "url": "POKE_STORE_URL"
+        },
+        "chatbot": {
+            "url": "CHATBOT_URL",
+            "apiKey": "CHATBOT_API_KEY",
+            "chatbotId": "CHATBOT_ID"
         }
     },
     "settings": {
-        "workingDir": "WORKING_DIR"
+        "workingDir": "WORKING_DIR",
+        "chatbotRetry": {
+            "limit": {
+                "__name": "CHATBOT_RETRY_LIMIT",
+                "__format": "number"
+            },
+            "maxRetryAfterMs": {
+                "__name": "CHATBOT_MAX_RETRY_AFTER_MS",
+                "__format": "number"
+            },
+            "backoffLimitMs": {
+                "__name": "CHATBOT_BACKOFF_LIMIT_MS",
+                "__format": "number"
+            }
+        }
     }
 }

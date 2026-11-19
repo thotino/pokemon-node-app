@@ -1,5 +1,6 @@
 import conf from "config";
 import { PokeStoreConnectorParams } from "./connectors/PokeStoreConnector";
+import { ChatbotConnectorParams, ChatbotRetrySettings } from "./types/chatbot";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -18,9 +19,11 @@ type WebserverConfig = {
 
 type ConnectorsConfig = {
     pokeStore: PokeStoreConnectorParams;
+    chatbot: ChatbotConnectorParams;
 };
 type SettingsConfig = {
     workingDir: string;
+    chatbotRetry: ChatbotRetrySettings;
 };
 export default {
     service: conf.get("service") as ServiceConfig,

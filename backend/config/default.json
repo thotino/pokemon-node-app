@@ -9,9 +9,19 @@
     "connectors": {
         "pokeStore": {
             "url": "http://localhost:9200"
+        },
+        "chatbot": {
+            "url": "https://chatbot-api.getvirtualbrain.com",
+            "apiKey": "",
+            "chatbotId": ""
         }
     },
     "settings": {
-        "wokingDir": "/tmp"
+        "workingDir": "/tmp",
+        "chatbotRetry": {
+            "limit": 3,
+            "maxRetryAfterMs": 10000,
+            "backoffLimitMs": 5000
+        }
     }
 }
