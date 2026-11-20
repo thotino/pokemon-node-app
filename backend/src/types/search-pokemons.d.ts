@@ -1,6 +1,12 @@
 import Pokemon from "../entities/Pokemon";
 import PokemonTypeFacet from "../entities/PokemonTypeFacet";
 
+export type PokemonSearchQuery = {
+    q?: string;
+    types?: string[];
+    from: number;
+    size: number;
+};
 export type PokemonSearchRequest = {
     keywords?: string;
     types?: string[];

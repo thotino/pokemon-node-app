@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { errors } from "@elastic/elasticsearch";
 import { Readable } from "node:stream";
 import BattleService from "../BattleService";
 import PokeService from "../PokeService";
 import BattleRepository from "../../repositories/BattleRepository";
 import Pokemon from "../../entities/Pokemon";
 import PokemonNotFoundError from "../../errors/PokemonNotFoundError";
+import { BATTLE_WINNER_LABEL } from "../../constants";
 
 vi.mock("../../repositories/BattleRepository", () => ({
     default: { query: vi.fn() },
@@ -16,26 +16,21 @@ vi.mock("../PokeService", () => ({
 
 const signal = new AbortController().signal;
 
-function notFound() {
-    return new errors.ResponseError({
-        body: { found: false },
-        statusCode: 404,
-        headers: {},
-        warnings: null,
-        meta: {} as never,
-    });
-}
+const POKEMON_NAMES: Record<string, string> = {
+    "25": "Pikachu",
+    "6": "Dracaufeu",
+};
 
 function mockPokemons(missing: string[] = []) {
     vi.mocked(PokeService.getById).mockImplementation(async id =>
         missing.includes(id)
-            ? Promise.reject(notFound())
-            : ({ id: Number(id) } as Pokemon),
+            ? Promise.reject(new PokemonNotFoundError([id]))
+            : ({ id: Number(id), name: POKEMON_NAMES[id] } as Pokemon),
     );
 }
 
 describe("BattleService", () => {
-    it("queries the chatbot with a prompt naming the pokemon ids", async () => {
+    it("queries the chatbot with a prompt naming the pokemons", async () => {
         const result = { sessionId: "s-1", stream: Readable.from(["ok"]) };
         mockPokemons();
         vi.mocked(BattleRepository.query).mockResolvedValue(result);
@@ -49,7 +44,10 @@ describe("BattleService", () => {
         const [prompt, passedSignal, sessionId] = vi.mocked(
             BattleRepository.query,
         ).mock.calls[0];
-        expect(prompt).toContain("25, 6");
+        expect(prompt).toContain("Pikachu (#25), Dracaufeu (#6)");
+        expect(prompt).toContain(
+            `"${BATTLE_WINNER_LABEL} <nom> (#<identifiant>)"`,
+        );
         expect(passedSignal).toBe(signal);
         expect(sessionId).toBeUndefined();
     });

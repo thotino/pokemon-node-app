@@ -18,12 +18,14 @@ type PokemonTypeAggregations = {
 };
 const INDEX_NAME = "latest_pokenode";
 export default class PokeRepository {
-    static async getById(id: string) {
-        const result = await pokeStoreConnector.client.get<IPokemon>({
-            id,
-            index: INDEX_NAME,
-        });
-        return new Pokemon(result._source!);
+    static async getById(id: string): Promise<Pokemon | null> {
+        const result = await pokeStoreConnector.client.get<IPokemon>(
+            { id, index: INDEX_NAME },
+            { ignore: [404] },
+        );
+        return result !== null && result.found && result._source != null
+            ? new Pokemon(result._source)
+            : null;
     }
     static #buildQuery(request: PokemonSearchRequest) {
         if (request.keywords != null) {

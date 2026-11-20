@@ -1,9 +1,10 @@
-import { HTTPError } from "ky";
+import { HTTPError, TimeoutError } from "ky";
 import { Readable } from "node:stream";
 import { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { chatbotConnector } from "../connectors";
 import ChatbotConnector from "../connectors/ChatbotConnector";
 import ChatbotRateLimitError from "../errors/ChatbotRateLimitError";
+import ChatbotUnavailableError from "../errors/ChatbotUnavailableError";
 import {
     ChatbotQueryResult,
     ChatbotTokenResponse,
@@ -149,6 +150,9 @@ export default class BattleRepository {
                 delay == null ? undefined : Math.ceil(delay / 1000),
                 error,
             );
+        }
+        if (error instanceof HTTPError || error instanceof TimeoutError) {
+            return new ChatbotUnavailableError(error);
         }
         return error;
     }

@@ -1,7 +1,8 @@
-import { errors } from "@elastic/elasticsearch";
 import BattleRepository from "../repositories/BattleRepository";
 import PokeService from "./PokeService";
+import Pokemon from "../entities/Pokemon";
 import PokemonNotFoundError from "../errors/PokemonNotFoundError";
+import { BATTLE_WINNER_LABEL } from "../constants";
 import { BattleRequest } from "../types/battle";
 import { ChatbotQueryResult } from "../types/chatbot";
 
@@ -10,23 +11,25 @@ export default class BattleService {
         request: BattleRequest,
         signal: AbortSignal,
     ): Promise<ChatbotQueryResult> {
-        await BattleService.#assertPokemonsExist(request.pokemonIds);
+        const fighters = await BattleService.#getFighters(request.pokemonIds);
         return BattleRepository.query(
-            BattleService.#buildPrompt(request.pokemonIds),
+            BattleService.#buildPrompt(fighters),
             signal,
         );
     }
 
-    static async #assertPokemonsExist(pokemonIds: string[]) {
+    static async #getFighters(pokemonIds: string[]): Promise<Pokemon[]> {
         const results = await Promise.allSettled(
             pokemonIds.map(id => PokeService.getById(id)),
         );
+        const fighters: Pokemon[] = [];
         const missingIds: string[] = [];
         results.forEach((result, index) => {
             if (result.status === "fulfilled") {
+                fighters.push(result.value);
                 return;
             }
-            if (!BattleService.#isNotFound(result.reason)) {
+            if (!(result.reason instanceof PokemonNotFoundError)) {
                 throw result.reason;
             }
             missingIds.push(pokemonIds[index]);
@@ -34,21 +37,18 @@ export default class BattleService {
         if (missingIds.length !== 0) {
             throw new PokemonNotFoundError(missingIds);
         }
+        return fighters;
     }
 
-    static #isNotFound(error: unknown) {
-        return (
-            (error instanceof errors.ResponseError &&
-                error.statusCode === 404) ||
-            (error instanceof Error &&
-                error.message === "ERR_POKEMON_NOT_FOUND")
-        );
-    }
-
-    static #buildPrompt(pokemonIds: string[]) {
+    static #buildPrompt(fighters: Pokemon[]) {
+        const roster = fighters
+            .map(fighter => `${fighter.name} (#${fighter.id})`)
+            .join(", ");
         return [
-            `Simule un combat Pokémon entre les Pokémon d'identifiants ${pokemonIds.join(", ")}.`,
-            "Raconte le combat tour par tour et annonce le vainqueur à la fin.",
+            `Simule un combat Pokémon entre les Pokémon suivants : ${roster}.`,
+            "Raconte le combat tour par tour.",
+            "Le vainqueur doit obligatoirement être l'un des Pokémon listés ci-dessus.",
+            `Termine ta réponse par une dernière ligne, seule, au format exact : "${BATTLE_WINNER_LABEL} <nom> (#<identifiant>)".`,
         ].join("\n");
     }
 }

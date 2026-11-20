@@ -6,6 +6,7 @@ import { createServer } from "http";
 import { PokemonController } from "./controllers/PokemonController";
 import { ContentController } from "./controllers/ContentsController";
 import { BattleController } from "./controllers/BattleController";
+import { handleError } from "./controllers/middlewares/handleError";
 
 /** App */
 const app = express();
@@ -36,6 +37,7 @@ app.use("/pokemons", PokemonController);
 app.use("/contents", ContentController);
 app.use("/battles", BattleController);
 app.get("/ping", (_req, res) => res.status(200).send("pong"));
+app.use(handleError);
 
 /* -------------------------- Start the application ------------------------- */
 

@@ -1,3 +1,7 @@
+export type PokemonIdParams = {
+    id: string;
+};
+
 export interface PokemonType {
     name: string;
     image: string;
