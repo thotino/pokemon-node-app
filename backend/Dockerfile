@@ -1,6 +1,6 @@
 FROM node:26 AS builder
 
-RUN mkdir -p /app/ && chown node:node /app
+RUN mkdir -p /app/ && mkdir -p /app/tmp/ && chown node:node /app
 USER node
 WORKDIR /app
 
