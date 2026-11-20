@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import express from "express";
 import request from "supertest";
-import { HTTPError } from "ky";
 import { Readable } from "node:stream";
 import { BattleController } from "../BattleController";
+import { handleError } from "../middlewares/handleError";
 import BattleService from "../../services/BattleService";
 import ChatbotRateLimitError from "../../errors/ChatbotRateLimitError";
+import ChatbotUnavailableError from "../../errors/ChatbotUnavailableError";
 import PokemonNotFoundError from "../../errors/PokemonNotFoundError";
 
 vi.mock("../../services/BattleService", () => ({
@@ -15,6 +16,7 @@ vi.mock("../../services/BattleService", () => ({
 const app = express();
 app.use(express.json());
 app.use("/battles", BattleController);
+app.use(handleError);
 
 function postBattle(body?: object) {
     const pending = request(app).post("/battles");
@@ -60,6 +62,8 @@ describe("BattleController", () => {
         ["duplicated ids", { pokemonIds: ["25", "25"] }],
         ["empty ids", { pokemonIds: ["25", " "] }],
         ["invalid ids", { pokemonIds: ["25", { id: 6 }] }],
+        ["non numeric ids", { pokemonIds: ["25", "pikachu"] }],
+        ["float ids", { pokemonIds: ["25", 6.5] }],
         [
             "too many pokemon",
             { pokemonIds: ["1", "2", "3", "4", "5", "6", "7"] },
@@ -69,9 +73,25 @@ describe("BattleController", () => {
 
         expect(response.status).toBe(400);
         expect(response.body).toMatchObject({
-            code: "ERR_INVALID_BATTLE_REQUEST",
+            code: "ERR_INVALID_REQUEST",
+            value: null,
         });
+        expect(response.body.validationErrors).not.toHaveLength(0);
         expect(BattleService.startBattle).not.toHaveBeenCalled();
+    });
+
+    it("details the validation errors", async () => {
+        const response = await postBattle({ pokemonIds: ["25", "25"] });
+
+        expect(response.body.validationErrors).toEqual([
+            {
+                location: "body",
+                path: "/pokemonIds",
+                keyword: "uniqueItems",
+                message:
+                    "must NOT have duplicate items (items ## 1 and 0 are identical)",
+            },
+        ]);
     });
 
     it("answers 404 with the unknown pokemon ids", async () => {
@@ -106,11 +126,7 @@ describe("BattleController", () => {
 
     it("answers 502 when the chatbot fails", async () => {
         vi.mocked(BattleService.startBattle).mockRejectedValue(
-            new HTTPError(
-                new Response("", { status: 500 }),
-                new Request("https://chatbot.test/query"),
-                {} as never,
-            ),
+            new ChatbotUnavailableError(),
         );
 
         const response = await postBattle({ pokemonIds: ["25", "6"] });
@@ -122,7 +138,6 @@ describe("BattleController", () => {
     });
 
     it("answers 500 on unexpected errors, whatever their status code", async () => {
-        vi.spyOn(console, "error").mockImplementation(() => {});
         vi.mocked(BattleService.startBattle).mockRejectedValue(
             Object.assign(new Error("illegal_argument_exception"), {
                 statusCode: 400,
