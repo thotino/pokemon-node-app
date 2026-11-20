@@ -1,15 +1,15 @@
 services:
   elasticsearch: 
     image: docker.elastic.co/elasticsearch/elasticsearch-wolfi:9.5.6
-    container_name: pokeindex
+    container_name: elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
     mem_limit: 1g
     ports:
-      - "9200:9200"
+      - "127.0.0.1:9200:9200"
     volumes:
-      - esdata:/var/lib/elasticsearch/data
+      - esdata:/usr/share/elasticsearch/data
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'"]
       interval: 30s
@@ -20,12 +20,12 @@ services:
   api:
     build: ./backend
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       PORT: 3001
       POKE_STORE_URL: http://elasticsearch:9200
       CHATBOT_URL: https://chatbot-api.getvirtualbrain.com
-      CHATBOT_API_KEY: vb_ak_c74342c33dcdb9bbb77307ebf2ff358c7737b53b
-      WORKING_DIR: /tmp
+      CHATBOT_API_KEY: ${CHATBOT_API_KEY}
+      WORKING_DIR: /app/tmp
     ports:
       - "3001:3001"
     volumes:
