@@ -24,6 +24,12 @@ Les couches:
 
 **Tests**
 Les tests vont dans les sous-dossiers `__tests__`, au plus près des modules testés.
+* mocker la couche juste en dessous du module testé
+* nommer le mock en entier
+* vérifier le mock directement, sans fonction utilitaire qui relit ou filtre les appels
+* déclarer `vi.mock("../module")`
+* utiliser `vi.mocked()` pour typer et configurer les mocks
+* pas de `vi.hoisted`
 
 ## Commandes utiles
 Après chaque modification dans un module, faire les vérifications suivantes:
