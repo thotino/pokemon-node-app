@@ -1,6 +1,9 @@
 import { type Request, type Response, Router } from "express";
 import PokeService from "../services/PokeService";
-import PokemonSchemas from "./schemas/PokemonSchemas";
+import {
+    pokemonIdParamsSchema,
+    pokemonSearchQuerySchema,
+} from "./schemas/pokemonSchemas";
 import { validateRequest } from "./middlewares/validateRequest";
 import type { PokemonIdParams } from "../types/pokemon";
 import type { PokemonSearchQuery } from "../types/search-pokemons";
@@ -10,7 +13,7 @@ const PokemonController = Router();
 
 PokemonController.get(
     "/",
-    validateRequest({ query: PokemonSchemas.searchQuery }),
+    validateRequest({ query: pokemonSearchQuerySchema }),
     async (
         _req: Request,
         res: Response<unknown, ValidatedLocals<unknown, PokemonSearchQuery>>,
@@ -28,7 +31,7 @@ PokemonController.get(
 
 PokemonController.get(
     "/:id",
-    validateRequest({ params: PokemonSchemas.idParams }),
+    validateRequest({ params: pokemonIdParamsSchema }),
     async (
         _req: Request,
         res: Response<unknown, ValidatedLocals<PokemonIdParams>>,

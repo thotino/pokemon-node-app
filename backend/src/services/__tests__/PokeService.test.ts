@@ -4,9 +4,7 @@ import PokeRepository from "../../repositories/PokeRepository";
 import Pokemon from "../../entities/Pokemon";
 import PokemonNotFoundError from "../../errors/PokemonNotFoundError";
 
-vi.mock("../../repositories/PokeRepository", () => ({
-    default: { getById: vi.fn() },
-}));
+vi.mock("../../repositories/PokeRepository");
 
 describe("PokeService", () => {
     describe("getById", () => {

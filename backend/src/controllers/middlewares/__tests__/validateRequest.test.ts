@@ -7,8 +7,11 @@ import express, {
 import request from "supertest";
 import { validateRequest } from "../validateRequest";
 import InvalidRequestError from "../../../errors/http/InvalidRequestError";
-import PokemonSchemas from "../../schemas/PokemonSchemas";
-import BattleSchemas from "../../schemas/BattleSchemas";
+import {
+    pokemonIdParamsSchema,
+    pokemonSearchQuerySchema,
+} from "../../schemas/pokemonSchemas";
+import { battleRequestBodySchema } from "../../schemas/battleSchemas";
 
 const echo = (req: Request, res: Response) =>
     res.status(200).send({ validated: res.locals.validated, raw: req.body });
@@ -18,15 +21,15 @@ app.set("query parser", "simple");
 app.use(express.json());
 app.get(
     "/pokemons",
-    validateRequest({ query: PokemonSchemas.searchQuery }),
+    validateRequest({ query: pokemonSearchQuerySchema }),
     echo,
 );
 app.get(
     "/pokemons/:id",
-    validateRequest({ params: PokemonSchemas.idParams }),
+    validateRequest({ params: pokemonIdParamsSchema }),
     echo,
 );
-app.post("/battles", validateRequest({ body: BattleSchemas.body }), echo);
+app.post("/battles", validateRequest({ body: battleRequestBodySchema }), echo);
 app.use((error: Error, _req: Request, res: Response, next: NextFunction) => {
     if (!(error instanceof InvalidRequestError)) {
         return next(error);

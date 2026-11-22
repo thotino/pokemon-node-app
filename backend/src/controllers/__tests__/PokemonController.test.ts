@@ -8,9 +8,7 @@ import Pokemon from "../../entities/Pokemon";
 import PokemonNotFoundError from "../../errors/PokemonNotFoundError";
 import type { PokemonSearchResponse } from "../../types/search-pokemons";
 
-vi.mock("../../services/PokeService", () => ({
-    default: { search: vi.fn(), getById: vi.fn() },
-}));
+vi.mock("../../services/PokeService");
 
 const app = express();
 app.set("query parser", "simple");

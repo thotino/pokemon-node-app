@@ -2,7 +2,7 @@ import { type Request, type Response, Router } from "express";
 import ContentService from "../services/ContentService";
 import { pipeline } from "node:stream/promises";
 import { randomUUID } from "node:crypto";
-import ContentSchemas from "./schemas/ContentSchemas";
+import { contentRequestParamsSchema } from "./schemas/contentSchemas";
 import { validateRequest } from "./middlewares/validateRequest";
 import type { ContentParams } from "../types/content";
 import type { ValidatedLocals } from "../types/validation";
@@ -28,7 +28,7 @@ ContentController.get("/all", async (_req: Request, res: Response) => {
  */
 ContentController.get(
     "/:pokemonId",
-    validateRequest({ params: ContentSchemas.params }),
+    validateRequest({ params: contentRequestParamsSchema }),
     async (
         _req: Request,
         res: Response<unknown, ValidatedLocals<ContentParams>>,

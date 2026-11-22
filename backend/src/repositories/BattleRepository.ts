@@ -5,45 +5,10 @@ import { chatbotConnector } from "../connectors";
 import ChatbotConnector from "../connectors/ChatbotConnector";
 import ChatbotRateLimitError from "../errors/ChatbotRateLimitError";
 import ChatbotUnavailableError from "../errors/ChatbotUnavailableError";
-import {
-    ChatbotQueryResult,
-    ChatbotTokenResponse,
-    IChatbotTokens,
-} from "../types/chatbot";
-
-const TOKEN_EXPIRY_MARGIN_MS = 30_000;
+import { ChatbotQueryResult } from "../types/chatbot";
+import ChatbotAuthRepository from "./ChatbotAuthRepository";
 
 export default class BattleRepository {
-    static #tokens?: IChatbotTokens;
-    static #pendingAuth?: Promise<IChatbotTokens>;
-
-    static async exchangeApiKey(): Promise<IChatbotTokens> {
-        const response = (await chatbotConnector.client
-            .post("v1/auth/api-key/token", {
-                json: { apiKey: chatbotConnector.apiKey },
-            })
-            .json()) as ChatbotTokenResponse;
-        return BattleRepository.#toTokens(response);
-    }
-
-    static async refreshTokens(
-        current: IChatbotTokens,
-    ): Promise<IChatbotTokens> {
-        const response = (await chatbotConnector.client
-            .post("v1/auth/api-key/refresh", {
-                json: {
-                    refreshToken: current.refreshToken,
-                    chatbotId: current.chatbotId,
-                },
-            })
-            .json()) as ChatbotTokenResponse;
-        return BattleRepository.#toTokens(response);
-    }
-
-    static clearTokens() {
-        BattleRepository.#tokens = undefined;
-    }
-
     static async query(
         prompt: string,
         signal: AbortSignal,
@@ -54,17 +19,7 @@ export default class BattleRepository {
                 prompt,
                 signal,
                 sessionId,
-            ).catch(error => {
-                if (BattleRepository.#isUnauthorized(error)) {
-                    BattleRepository.clearTokens();
-                    return BattleRepository.#sendQuery(
-                        prompt,
-                        signal,
-                        sessionId,
-                    );
-                }
-                throw error;
-            });
+            );
             return {
                 sessionId:
                     ChatbotConnector.readSessionId(response) ?? sessionId,
@@ -79,57 +34,29 @@ export default class BattleRepository {
         prompt: string,
         signal: AbortSignal,
         sessionId?: string,
+        retried = false,
     ): Promise<Response> {
-        const tokens = await BattleRepository.#getTokens();
-        return chatbotConnector
-            .withSession(sessionId)
-            .post(
-                `v1/open-completion/${encodeURIComponent(tokens.chatbotId)}/query`,
-                {
-                    json: { query: prompt },
-                    headers: { Authorization: `Bearer ${tokens.accessToken}` },
-                    signal,
-                },
-            );
-    }
-
-    static async #getTokens(): Promise<IChatbotTokens> {
-        const tokens = BattleRepository.#tokens;
-        if (tokens != null && BattleRepository.#isValid(tokens)) {
-            return tokens;
+        const tokens = await ChatbotAuthRepository.getTokens();
+        try {
+            return await chatbotConnector
+                .withSession(sessionId)
+                .post(
+                    `v1/open-completion/${encodeURIComponent(tokens.chatbotId)}/query`,
+                    {
+                        json: { query: prompt },
+                        headers: {
+                            Authorization: `Bearer ${tokens.accessToken}`,
+                        },
+                        signal,
+                    },
+                );
+        } catch (error) {
+            if (retried || !BattleRepository.#isUnauthorized(error)) {
+                throw error;
+            }
+            ChatbotAuthRepository.invalidate(tokens);
+            return BattleRepository.#sendQuery(prompt, signal, sessionId, true);
         }
-        BattleRepository.#pendingAuth ??= BattleRepository.#authenticate(
-            tokens,
-        ).finally(() => {
-            BattleRepository.#pendingAuth = undefined;
-        });
-        return BattleRepository.#pendingAuth;
-    }
-
-    static async #authenticate(
-        current?: IChatbotTokens,
-    ): Promise<IChatbotTokens> {
-        const tokens =
-            current == null
-                ? await BattleRepository.exchangeApiKey()
-                : await BattleRepository.refreshTokens(current).catch(() =>
-                      BattleRepository.exchangeApiKey(),
-                  );
-        BattleRepository.#tokens = tokens;
-        return tokens;
-    }
-
-    static #isValid(tokens: IChatbotTokens) {
-        return tokens.expiresAt - TOKEN_EXPIRY_MARGIN_MS > Date.now();
-    }
-
-    static #toTokens(response: ChatbotTokenResponse): IChatbotTokens {
-        return {
-            accessToken: response.accessToken,
-            refreshToken: response.refreshToken,
-            chatbotId: response.chatbotId,
-            expiresAt: Date.now() + response.expiresIn * 1000,
-        };
     }
 
     static #toStream(response: Response): Readable {

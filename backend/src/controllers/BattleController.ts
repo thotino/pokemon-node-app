@@ -1,7 +1,7 @@
 import { type Request, type Response, Router } from "express";
 import { pipeline } from "node:stream/promises";
 import BattleService from "../services/BattleService";
-import BattleSchemas from "./schemas/BattleSchemas";
+import { battleRequestBodySchema } from "./schemas/battleSchemas";
 import { validateRequest } from "./middlewares/validateRequest";
 import type { BattleRequest } from "../types/battle";
 import type { ValidatedLocals } from "../types/validation";
@@ -16,7 +16,7 @@ const BattleController = Router();
  */
 BattleController.post(
     "/",
-    validateRequest({ body: BattleSchemas.body }),
+    validateRequest({ body: battleRequestBodySchema }),
     async (
         _req: Request,
         res: Response<

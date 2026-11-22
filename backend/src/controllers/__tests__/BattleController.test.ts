@@ -9,9 +9,7 @@ import ChatbotRateLimitError from "../../errors/ChatbotRateLimitError";
 import ChatbotUnavailableError from "../../errors/ChatbotUnavailableError";
 import PokemonNotFoundError from "../../errors/PokemonNotFoundError";
 
-vi.mock("../../services/BattleService", () => ({
-    default: { startBattle: vi.fn() },
-}));
+vi.mock("../../services/BattleService");
 
 const app = express();
 app.use(express.json());

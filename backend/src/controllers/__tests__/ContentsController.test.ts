@@ -7,9 +7,7 @@ import { handleError } from "../middlewares/handleError";
 import ContentService from "../../services/ContentService";
 import PokemonNotFoundError from "../../errors/PokemonNotFoundError";
 
-vi.mock("../../services/ContentService", () => ({
-    default: { buildPokemonFile: vi.fn(), buildPokemonExport: vi.fn() },
-}));
+vi.mock("../../services/ContentService");
 
 const app = express();
 app.use("/contents", ContentController);

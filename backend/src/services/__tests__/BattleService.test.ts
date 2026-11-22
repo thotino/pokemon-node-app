@@ -7,33 +7,18 @@ import Pokemon from "../../entities/Pokemon";
 import PokemonNotFoundError from "../../errors/PokemonNotFoundError";
 import { BATTLE_WINNER_LABEL } from "../../constants";
 
-vi.mock("../../repositories/BattleRepository", () => ({
-    default: { query: vi.fn() },
-}));
-vi.mock("../PokeService", () => ({
-    default: { getById: vi.fn() },
-}));
+vi.mock("../../repositories/BattleRepository");
+vi.mock("../PokeService");
 
 const signal = new AbortController().signal;
-
-const POKEMON_NAMES: Record<string, string> = {
-    "25": "Pikachu",
-    "6": "Dracaufeu",
-};
-
-function mockPokemons(missing: string[] = []) {
-    vi.mocked(PokeService.getById).mockImplementation(async id =>
-        missing.includes(id)
-            ? Promise.reject(new PokemonNotFoundError([id]))
-            : ({ id: Number(id), name: POKEMON_NAMES[id] } as Pokemon),
-    );
-}
 
 describe("BattleService", () => {
     it("queries the chatbot with a prompt naming the pokemons", async () => {
         const result = { sessionId: "s-1", stream: Readable.from(["ok"]) };
-        mockPokemons();
-        vi.mocked(BattleRepository.query).mockResolvedValue(result);
+        vi.mocked(PokeService.getById)
+            .mockResolvedValueOnce({ id: 25, name: "Pikachu" } as Pokemon)
+            .mockResolvedValueOnce({ id: 6, name: "Dracaufeu" } as Pokemon);
+        vi.mocked(BattleRepository.query).mockResolvedValueOnce(result);
 
         await expect(
             BattleService.startBattle({ pokemonIds: ["25", "6"] }, signal),
@@ -53,7 +38,10 @@ describe("BattleService", () => {
     });
 
     it("rejects unknown pokemon without querying the chatbot", async () => {
-        mockPokemons(["9999", "8888"]);
+        vi.mocked(PokeService.getById)
+            .mockRejectedValueOnce(new PokemonNotFoundError(["9999"]))
+            .mockResolvedValueOnce({ id: 25, name: "Pikachu" } as Pokemon)
+            .mockRejectedValueOnce(new PokemonNotFoundError(["8888"]));
 
         const error = await BattleService.startBattle(
             { pokemonIds: ["9999", "25", "8888"] },

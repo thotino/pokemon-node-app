@@ -52,7 +52,7 @@ describe("toWebserverError", () => {
 
     it("puts retry-after in the headers", () => {
         expect(toWebserverError(new ChatbotRateLimitError(12)).headers).toEqual(
-            { "Retry-After": "12" },
+            { "Retry-After": 12 },
         );
     });
 
