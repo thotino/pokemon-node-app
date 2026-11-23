@@ -17,9 +17,12 @@ Journal des décisions d'architecture de `pokemon-node-app`. Chaque décision es
 | [011](#adr-011--indexer-en-commonjs-et-image-docker-multi-stage) | Indexer en CommonJS et image Docker multi-stage | indexer + backend | Acceptée | 2026-11-18 |
 | [012](#adr-012--rotation-des-alias-latest_pokenode--previous_pokenode) | Rotation des alias `latest_pokenode` / `previous_pokenode` | indexer | Acceptée | 2026-11-19 |
 | [013](#adr-013--client-http-unique-ky-via-le-connecteur-pokeapi) | Client HTTP unique : ky via le connecteur PokeAPI | indexer | Acceptée | 2026-11-19 |
-| [014](#adr-014--route-post-battles--proxy-brut-du-stream-du-chatbot) | Route `POST /battles` : proxy brut du stream du chatbot | backend | Partiellement remplacée par ADR-015 | 2026-11-19 |
-| [015](#adr-015--le-chatbotid-est-fourni-par-léchange-de-la-clé-dapi) | Le `chatbotId` est fourni par l'échange de la clé d'API | backend | Acceptée | 2026-11-19 |
+| [014](#adr-014--route-post-battles--proxy-brut-du-stream-du-chatbot) | Route `POST /battles` : proxy brut du stream du chatbot | backend | Partiellement remplacée par ADR-015, ADR-017, ADR-018 et ADR-019 | 2026-11-19 |
+| [015](#adr-015--le-chatbotid-est-fourni-par-léchange-de-la-clé-dapi) | Le `chatbotId` est fourni par l'échange de la clé d'API | backend | Partiellement remplacée par ADR-019 | 2026-11-19 |
 | [016](#adr-016--arène-de-combat--lecture-du-stream-hors-tanstack-query) | Arène de combat : lecture du stream hors TanStack Query | web-app | Acceptée | 2026-11-19 |
+| [017](#adr-017--validation-des-requêtes-avec-ajv) | Validation des requêtes avec ajv | backend | Acceptée | 2026-11-20 |
+| [018](#adr-018--erreurs-métier-converties-en-erreurs-http-par-handleerror) | Erreurs métier converties en erreurs HTTP par `handleError` | backend | Acceptée | 2026-11-20 |
+| [019](#adr-019--authentification-du-chatbot-isolée-dans-chatbotauthrepository) | Authentification du chatbot isolée dans `ChatbotAuthRepository` | backend | Acceptée | 2026-11-22 |
 
 ---
 
@@ -428,3 +431,134 @@ Le web-app doit permettre de choisir deux Pokémon et raconter le combat renvoy�
 - Le récit est affiché en texte brut (`whitespace-pre-wrap`) : un éventuel Markdown du chatbot n'est pas mis en forme.
 - Après un rechargement sur `?view=battle`, la sélection est perdue et l'arène demande de choisir 2 Pokémon.
 - `X-Session-Id` est lu par le repository mais pas encore utilisé : il servira pour un combat tour par tour.
+
+---
+
+## ADR-017 : Validation des requêtes avec ajv
+
+**Statut** : Acceptée, 2026-11-20. Remplace en partie l'ADR-014 (validation de `POST /battles`).
+
+**Contexte**
+Chaque contrôleur validait ses entrées à la main, de façon inégale. `POST /battles` avait sa fonction `parsePokemonIds`. `GET /pokemons` passait `from` et `size` à `parseInt` sans contrôle : `size=abc` envoyait `NaN` à Elasticsearch, `size=10abc` devenait `10`, et aucune borne ne limitait la taille de page. Les routes `/:id` testaient `typeof id === "string"`, ce qui est toujours vrai pour un paramètre de route, et répondaient `400` sans corps.
+
+**Décision**
+- **ajv 8 et JSON Schema typés** : un schéma `JSONSchemaType<T>` par entrée, dans `src/controllers/schemas/` (`PokemonSchemas`, `ContentSchemas`, `BattleSchemas`, classes à champs `static readonly`). Les types d'entrée sont dans `src/types/` (`PokemonSearchQuery`, `PokemonIdParams`, `ContentParams`, `BattleRequest`), et les types de la validation dans `types/validation.d.ts` (`RequestSchemas`, `ValidationIssue`, `ValidatedLocals`).
+- **Middleware `validateRequest(schemas)`** dans `src/controllers/middlewares/`. C'est une fonction exportée, pas une classe à méthodes statiques : un middleware Express n'a pas d'état à porter.
+  - Une seule instance Ajv : `allErrors` (toutes les erreurs d'un coup), `coerceTypes: "array"` (texte de la query vers entier, valeur seule vers tableau), `useDefaults`.
+  - Les schémas sont compilés une fois, à la déclaration de la route.
+  - `params`, `query` et `body` sont validés chacun sur une copie (`structuredClone`).
+- **Résultat dans `res.locals.validated`** : `{ params, query, body }` convertis et complétés par les valeurs par défaut. Le contrôleur le lit avec un `Response<unknown, ValidatedLocals<P, Q, B>>` typé, sans conversion forcée. On ne réécrit pas `req` : en Express 5, `req.query` est un getter recalculé à chaque lecture et ne peut pas être réassigné, et la requête brute reste disponible.
+- **Échec** : toutes les erreurs des trois parties sont réunies en `ValidationIssue` (`{ location, path, keyword, message }`). `path` est un JSON Pointer, qui pointe aussi la propriété manquante (`required`) ou en trop (`additionalProperties`), alors qu'ajv laisse ce chemin vide. Le middleware appelle `next(new InvalidRequestError(issues))` (voir ADR-018).
+- **Un seul code `ERR_INVALID_REQUEST` pour toutes les routes**. `ERR_INVALID_BATTLE_REQUEST` est supprimé : le front ne s'en servait pas, et `validationErrors` dit précisément ce qui est invalide.
+- **Règles** :
+  - identifiant de Pokémon (`/pokemons/:id`, `/contents/:pokemonId`, `pokemonIds`) : `POKEMON_ID_PATTERN = ^[1-9]\d*$`. Un entier est converti en texte (`6` devient `"6"`), mais `6.5`, `true`, `0`, `"025"` et `"pikachu"` sont refusés ;
+  - `POST /battles` : de `MIN_FIGHTERS` à `MAX_FIGHTERS` identifiants uniques, sans autre clé dans le corps ;
+  - `GET /pokemons` : `q` d'au plus `MAX_KEYWORDS_LENGTH` (100) caractères, `types` de 1 à `MAX_POKEMON_TYPES` (18) valeurs non vides et uniques, `from` ≥ 0 (défaut `DEFAULT_OFFSET`), `size` de 1 à `MAX_PAGE_SIZE` (100, défaut `DEFAULT_SIZE`), aucune autre clé.
+- **Tests** : `validateRequest` sur une petite app Express avec `supertest`, puis chaque contrôleur avec le service simulé.
+
+**Conséquences**
+- Des requêtes tolérées jusqu'ici reçoivent un `400` : `size=10abc`, `size=1.5`, `size=0`, un identifiant non numérique ou entouré d'espaces, des `types` vides ou en double, `q` répété, une clé inconnue. Le front n'en envoie aucune.
+- Les valeurs ne sont plus nettoyées des espaces : `" 25 "` est refusé au lieu d'être accepté.
+- `JSONSchemaType` vérifie le type et le caractère `nullable` de chaque propriété, mais pas qu'une propriété obligatoire figure bien dans `required` : les tests couvrent ce cas.
+- Valider une nouvelle route demande un schéma et un `validateRequest` dans sa déclaration.
+
+---
+
+## ADR-018 : Erreurs métier converties en erreurs HTTP par `handleError`
+
+**Statut** : Acceptée, 2026-11-20. Remplace en partie l'ADR-014 (gestion des erreurs de `POST /battles`).
+
+**Contexte**
+`BattleController` associait lui-même chaque erreur à un statut, avec `sendError` et un `try/catch`. Les autres contrôleurs n'avaient aucune gestion d'erreur : `PokeService.getById` levait `Error("ERR_POKEMON_NOT_FOUND")`, et le 404 d'Elasticsearch remontait jusqu'au gestionnaire par défaut d'Express, qui répondait une 500 en HTML. Chaque nouvelle route aurait dû refaire ce travail.
+
+**Décision**
+- **Erreurs métier** dans `src/errors/` : `PokemonNotFoundError`, `ChatbotRateLimitError`, `ChatbotUnavailableError`. Elles implémentent `ServiceErrorInterface`, portent leur propre code (`readonly code = "ERR_..."`, jamais dans `constants.ts`) et ignorent tout de HTTP. Elles sont levées par les services, ou par les repositories quand ils traduisent une erreur de transport.
+- **Erreurs propres à HTTP** dans `src/errors/http/` : `InvalidRequestError` (validation, voir ADR-017) et `InternalServerError` (toute erreur inattendue, gardée dans `cause`).
+- **Traduction au plus près de la source** :
+  - `BattleRepository.#mapError` : un `429` du chatbot devient `ChatbotRateLimitError`, toute autre `HTTPError` ou un `TimeoutError` de ky devient `ChatbotUnavailableError`, avec l'erreur ky dans `cause` ;
+  - `PokeRepository.getById` renvoie `null` quand le Pokémon n'existe pas (`ignore: [404]` du client Elasticsearch), et `PokeService.getById` lève alors `PokemonNotFoundError([id])`. `BattleService` reconnaît cette erreur pour réunir tous les identifiants introuvables.
+- **`WebserverErrorInterface` étend `ServiceErrorInterface` et `HttpError`** (de `http-errors`, la bibliothèque qu'Express utilise déjà) : `status` et `statusCode`, `expose` (vrai pour les 4xx), `headers`, plus `cause` (l'erreur métier) et `validationErrors`. Nos erreurs et celles d'Express ont ainsi la même forme.
+- **Middleware `handleError`** (fonction exportée dans `src/controllers/middlewares/`), enregistré en dernier dans `app.ts` :
+  - `toWebserverError` crée l'erreur avec `createError(statusCode, message)` puis ajoute `code`, `value` et `cause`. Une suite de `if (error instanceof …)` donne : `InvalidRequestError` → 400 avec `validationErrors`, `PokemonNotFoundError` → 404, `ChatbotRateLimitError` → 429 avec `Retry-After` dans `headers`, `ChatbotUnavailableError` → 502 ;
+  - une erreur `http-errors` en 4xx levée par Express (JSON mal formé, corps trop gros, encodage non supporté) devient une `InvalidRequestError` qui garde son statut. L'issue est `{ location: "body", path: "", keyword: <type d'erreur>, message }` ;
+  - tout le reste devient une `InternalServerError` (500), loggée avec `console.error` ;
+  - la réponse est `{ code, message, value, validationErrors? }`, avec les `headers` de l'erreur ;
+  - si la réponse a déjà commencé (stream de bataille), `handleError` passe la main à Express avec `next(error)`.
+- **Contrôleurs sans `try/catch`** : Express 5 transmet à `handleError` les rejets des handlers async.
+- **Dépendances** : `http-errors` devient une dépendance directe du backend (`@types/http-errors` en dev). `ts-pattern` est retiré du backend : de simples `if` suffisent.
+
+**Conséquences**
+- Une nouvelle erreur demande une classe et une branche dans `toWebserverError`. Aucun contrôleur ne connaît les codes de statut.
+- `GET /pokemons/:id` et `GET /contents/:pokemonId` répondent un `404 ERR_POKEMON_NOT_FOUND` en JSON au lieu d'une 500 HTML.
+- Toutes les erreurs ont le même format JSON, y compris un corps illisible, qui répond `400` au lieu de la page HTML d'Express.
+- La signature d'index `[key: string]: any` de `HttpError` affaiblit le typage de `WebserverErrorInterface` : une propriété mal nommée compile sans erreur.
+- Une route inconnue ne passe pas par `handleError` : Express répond toujours son 404 HTML par défaut.
+
+---
+
+## ADR-019 : Authentification du chatbot isolée dans `ChatbotAuthRepository`
+
+**Statut** : Acceptée, 2026-11-22. Remplace en partie l'ADR-014 (tokens gérés par `BattleRepository`, tests par `fetch` simulé) et l'ADR-015 (méthodes de tokens de `BattleRepository`).
+
+**Contexte**
+`BattleRepository` mêlait deux responsabilités : interroger le chatbot (prompt, stream, session, conversion des erreurs) et gérer les tokens VirtualBrain (échange de la clé, refresh, cache, authentification unique partagée). L'état des tokens, statique et privé, n'était jamais remis à zéro entre les tests : plusieurs tests échouaient selon leur ordre d'exécution. Un cache de tokens partagé entre les instances du backend est envisagé, et il faut pouvoir le brancher sans toucher à la logique de bataille. Enfin, sur des 401 simultanés, une requête en retard pouvait vider le cache après qu'une autre avait déjà obtenu des tokens neufs, ce qui provoquait un échange de clé inutile.
+
+**Décision**
+- **Nouveau `ChatbotAuthRepository`** dans `src/repositories/`, classe statique comme les autres repositories :
+  - `getTokens()` renvoie des tokens valides : cache en mémoire, échange de la clé au premier appel, refresh à l'expiration avec retour à l'échange si le refresh échoue, une seule authentification en cours à la fois (`#pendingAuth`) ;
+  - `invalidate(rejected)` vide le cache **seulement si** `rejected.accessToken` est encore celui en cache. Des tokens déjà remplacés ne sont pas effacés ;
+  - tout le reste est privé (`#authenticate`, `#exchangeApiKey`, `#refreshTokens`, `#isValid`, `#toTokens`). Les erreurs ky remontent telles quelles, sans conversion.
+- **`BattleRepository` ne gère plus les tokens** : `#sendQuery` demande ses tokens à `ChatbotAuthRepository.getTokens()`. Sur un 401, il appelle `invalidate(tokens)` avec les tokens refusés et rejoue la requête une seule fois. Il garde la conversion des erreurs (`#mapError`), y compris pour un échec d'authentification : celui-ci devient une `ChatbotUnavailableError` ou une `ChatbotRateLimitError`, comme avant.
+- **Constante** : la marge de 30 s avant expiration devient `CHATBOT_TOKEN_EXPIRY_MARGIN_MS` dans `src/constants.ts`.
+- **Tests sans `fetch` simulé** : `../../connectors` est simulé par un objet qui n'expose que ce que le repository utilise (`client.post`, plus `apiKey` ou `withSession`). Les tests programment et vérifient `chatbotConnector.client.post`, nommé explicitement, sans alias. Le transport ky reste testé dans `ChatbotConnector.test.ts`.
+  - **Assertions directes sur le mock, sans fonction qui relit ou filtre ses appels** :
+    - un appel attendu : `toHaveBeenCalledExactlyOnceWith(path, options)` ;
+    - plusieurs appels : `toHaveBeenNthCalledWith(n, path, expect.objectContaining(...))` pour une partie des options, ou `toEqual` sur `vi.mocked(chatbotConnector.client.post).mock.calls` pour la suite complète des appels, dans l'ordre, avec leurs chemins et leurs corps ;
+    - aucun appel attendu : `not.toHaveBeenCalled()` ;
+    - les appels attendus peuvent être décrits par des valeurs (`EXCHANGE_CALL`, `refreshCall(refreshToken, chatbotId?)`), qui ne lisent pas le mock.
+  - `BattleRepository.test.ts` simule aussi `ChatbotAuthRepository` (`getTokens`, `invalidate`).
+  - `ChatbotAuthRepository.test.ts` appelle `vi.resetModules()` puis réimporte le repository dans chaque `beforeEach`. L'état statique repart ainsi de zéro sans méthode publique réservée aux tests. Le mock du connecteur n'est pas réévalué par `resetModules` : l'import statique du test et le repository rechargé partagent le même `client.post`.
+
+**Conséquences**
+- Le cache partagé entre instances se branchera dans `ChatbotAuthRepository` seulement. `BattleRepository` et `BattleService` ne changeront pas.
+- Les tokens restent en mémoire, par instance du backend, comme dans l'ADR-014.
+- Le refresh repasse à l'échange de clé quelle que soit l'erreur (réseau, 5xx, 401), sans la journaliser.
+- `BattleRepository` connaît encore les tokens : il pose le header `Authorization`, construit le chemin avec le `chatbotId` et gère le rejeu sur 401.
+- Un nouveau test de `ChatbotAuthRepository` doit importer la classe dans le `beforeEach` (type importé avec `import type`), et non par un import statique.
+
+---
+
+## ADR-020 : Coalescence des requêtes PokeAPI dans `PokeResourceRepository`
+
+**Statut** : Acceptée, 2026-11-23.
+
+**Contexte**
+L'indexer faisait 6 176 appels à PokeAPI par exécution. `PokeRepository.fetchPokemon` demandait les types, l'espèce et la chaîne d'évolution de chaque Pokémon, alors que PokeAPI n'a que 18 types portés, 1 025 espèces et 540 chaînes d'évolution pour 1 351 Pokémon. Les 200 Pokémon d'une page sont récupérés en parallèle (`Promise.all`). Ils demandent donc les mêmes types au même moment, avant la première réponse : un cache de résultats ne servirait à rien à l'intérieur d'une page. PokeAPI demande à ses clients de mettre ses réponses en cache.
+
+**Décision**
+- **Nouveau `PokeResourceRepository`** dans `src/repositories/`, classe statique comme les autres repositories :
+  - `get<T>(url)` garde **la promesse** de chaque URL dans une `Map` privée (`#requests`). Les appels simultanés sur une même URL partagent une seule requête (coalescence), et les appels suivants reçoivent la réponse déjà obtenue (mémoïsation) ;
+  - en cas d'échec, l'URL est retirée de la `Map` avant que l'erreur soit relancée. Une erreur passagère ne reste pas en mémoire, et l'appel suivant retente la requête ;
+  - `clear()` vide la `Map`.
+- **`PokeRepository.fetchPokemon`** demande `type`, `pokemon-species` et `evolution-chain` à `PokeResourceRepository.get`. `pokemon/{id}` et la liste paginée restent des appels directs au connecteur : chaque URL n'est demandée qu'une fois par exécution.
+- **Un cache par exécution** : `PokeRepository.getPokemons` appelle `PokeResourceRepository.clear()` dans un `finally`. Le cache est donc vidé à la fin normale, sur une erreur, et quand le consommateur sort de la boucle `for await`. `PokemonIndexationService`, `main.ts` et les connecteurs ne changent pas.
+- **Les espèces restent dans le cache**, au vu de deux exécutions mesurées le 2026-11-23 sur les 1 351 Pokémon, sans écriture dans Elasticsearch :
+
+  | | Sans cache | Espèces en cache (retenu) | Espèces en appel direct |
+  |---|---|---|---|
+  | Appels à PokeAPI | 6 176 | 2 941 (-52,4 %) | 3 267 (-47,1 %) |
+  | Heap max (après GC) | | 61 Mo | 25 Mo |
+  | Heap après `clear()` | | 22 Mo | 22 Mo |
+
+- **Tests** :
+  - `PokeResourceRepository.test.ts` simule `../../connectors`. `client.get` renvoie un objet dont `json` est le mock `pokeApiResponseJson`, configuré par `mockResolvedValueOnce` ou `mockRejectedValueOnce`. Le test appelle `vi.resetModules()` et réimporte le repository dans chaque `beforeEach`, comme `ChatbotAuthRepository.test.ts` (ADR-019) ;
+  - `PokeRepository.test.ts` simule `../PokeResourceRepository` en plus du connecteur, et vérifie que `clear` est appelé à la fin de la liste comme en cas d'échec.
+
+**Conséquences**
+- L'indexer fait environ deux fois moins d'appels à PokeAPI, pour les mêmes documents : 1 351 Pokémon indexés.
+- Le cache occupe environ 40 Mo de heap pendant une exécution, dont environ 36 Mo pour les espèces, qui n'évitent que 326 appels. Si la mémoire devient un problème, on pourra retirer les espèces du cache.
+- Les pics de requêtes simultanées baissent peu : une page lance toujours environ 200 appels `pokemon` et 200 appels `pokemon-species` en même temps. Limiter la concurrence fera l'objet d'une décision séparée.
+- Rien n'est gardé entre deux exécutions : chaque exécution relit PokeAPI en entier.
+- Un même `ApiType` ou `ApiEvolutionChain` sert à construire plusieurs Pokémon. Ces objets ne doivent jamais être modifiés.
+- Une erreur sur une ressource partagée fait échouer tous les Pokémon qui l'attendent. Une seule erreur suffit déjà à faire échouer l'exécution, comme avant.
+- L'état est statique et commun au processus : l'indexer ne doit lancer qu'une exécution à la fois.
