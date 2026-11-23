@@ -1,6 +1,6 @@
 export const MIN_FIGHTERS = 2;
 export const MAX_FIGHTERS = 6;
-export const BATTLE_WINNER_LABEL = "Vainqueur :";
+export const BATTLE_WINNER_LABEL = "VAINQUEUR:";
 export const CHATBOT_TOKEN_EXPIRY_MARGIN_MS = 30_000;
 
 export const DEFAULT_OFFSET = 0;
