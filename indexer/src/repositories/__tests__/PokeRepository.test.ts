@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import PokeRepository from "../PokeRepository";
+import PokeResourceRepository from "../PokeResourceRepository";
 import { pokeApiConnector } from "../../connectors";
 import { Pokemon } from "../../types/pokemon";
 import {
@@ -12,6 +13,7 @@ import {
 vi.mock("../../connectors", () => ({
     pokeApiConnector: { client: { get: vi.fn() } },
 }));
+vi.mock("../PokeResourceRepository");
 
 const API = "https://pokeapi.co/api/v2";
 const POKEMON_URL = `${API}/pokemon/2/`;
@@ -130,11 +132,21 @@ function givenDefaultApi(
 ) {
     givenApi({
         [POKEMON_URL]: overrides.pokemon ?? buildPokemon(),
-        [GRASS_URL]: overrides.grass ?? GRASS,
-        [POISON_URL]: POISON,
-        [SPECIES_URL]: overrides.species ?? buildSpecies(),
-        [CHAIN_URL]: EVOLUTION_CHAIN,
     });
+    vi.mocked(PokeResourceRepository.get).mockImplementation((async (
+        url: string,
+    ) => {
+        const resources: Record<string, unknown> = {
+            [GRASS_URL]: overrides.grass ?? GRASS,
+            [POISON_URL]: POISON,
+            [SPECIES_URL]: overrides.species ?? buildSpecies(),
+            [CHAIN_URL]: EVOLUTION_CHAIN,
+        };
+        if (!(url in resources)) {
+            throw new Error(`Unexpected url ${url}`);
+        }
+        return resources[url];
+    }) as never);
 }
 
 describe("PokeRepository.fetchPokemon", () => {
@@ -400,5 +412,26 @@ describe("PokeRepository.getPokemons", () => {
         await expect(collect(PokeRepository.getPokemons())).rejects.toThrow(
             "detail failed",
         );
+    });
+
+    it("clears the shared resources once the list is exhausted", async () => {
+        givenPages(results(2));
+        givenFetchedPokemons();
+
+        await collect(PokeRepository.getPokemons());
+
+        expect(PokeResourceRepository.clear).toHaveBeenCalledOnce();
+    });
+
+    it("clears the shared resources when fetching fails", async () => {
+        givenPages(results(2));
+        vi.spyOn(PokeRepository, "fetchPokemon").mockRejectedValue(
+            new Error("detail failed"),
+        );
+
+        await expect(collect(PokeRepository.getPokemons())).rejects.toThrow(
+            "detail failed",
+        );
+        expect(PokeResourceRepository.clear).toHaveBeenCalledOnce();
     });
 });

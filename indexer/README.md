@@ -44,7 +44,7 @@ The diagram above shows one run.
 
 1. **Connect.** The Elasticsearch connector pings the cluster; the run stops if it is not reachable.
 2. **Create the index.** A new index `pokenode_<timestamp>` is created with one shard, the analysis settings (autocomplete on the name, lowercase normalizer) and a strict mapping.
-3. **Read PokeAPI.** The Pokémon list is read page by page, 200 at a time. For each Pokémon of a page, in parallel, the indexer fetches the Pokémon, its types and its species, then its evolution chain.
+3. **Read PokeAPI.** The Pokémon list is read page by page, 200 at a time. For each Pokémon of a page, in parallel, the indexer fetches the Pokémon, its types and its species, then its evolution chain. Types, species and evolution chains are shared by many Pokémon: each one is requested once per run (see [PokeAPI calls](#pokeapi-calls)).
 4. **Transform.** Each answer becomes a `Pokemon` document: base stats, types with their icon, generation, resistances to the 18 attacking types, direct evolutions and pre-evolution.
 5. **Index.** Each page is sent in one bulk request, with the Pokémon id as document id. Any item error fails the run.
 6. **Flush** the index once every page is written.
@@ -145,13 +145,23 @@ In Docker Compose, `POKE_STORE_URL=http://elasticsearch:9200` and `POKE_API_URL=
 
 #### PokeAPI calls
 
-| Request | When |
-|---|---|
-| `GET pokemon?offset=N&limit=200` | Once per page |
-| `GET pokemon/{id}` | Once per Pokémon |
-| `GET type/{id}` | Once per type of the Pokémon (1 or 2) |
-| `GET pokemon-species/{id}` | Once per Pokémon |
-| `GET evolution-chain/{id}` | Once per Pokémon |
+| Request | When | Calls per run (measured 2026-11-23) |
+|---|---|---|
+| `GET pokemon?offset=N&limit=200` | Once per page | 7 |
+| `GET pokemon/{id}` | Once per Pokémon | 1 351 |
+| `GET type/{id}` | Once per distinct type | 18 |
+| `GET pokemon-species/{id}` | Once per distinct species | 1 025 |
+| `GET evolution-chain/{id}` | Once per distinct evolution chain | 540 |
+| **Total** | | **2 941** |
+
+Types, species and evolution chains go through `PokeResourceRepository`, which keeps the promise of each URL for the duration of the run:
+
+- Pokémon of the same page that need the same resource at the same time share a single request;
+- later pages get the answer already received, without a new call;
+- a failed request is removed, so the next caller tries again;
+- the cache is emptied when the list is exhausted or the run fails.
+
+Without this cache, a run made 6 176 calls. The cache holds about 40 MB of heap during a run, mostly the species.
 
 #### Indexed document
 
@@ -184,6 +194,7 @@ Damage relations: `immune` (×0), `twice_resistant` (×0.25), `resistant` (×0.5
 | `src/connectors/PokeAPIConnector.ts` | connectors | `ky` client on the PokeAPI URL |
 | `src/connectors/PokeStoreConnector.ts` | connectors | Elasticsearch client |
 | `src/repositories/PokeRepository.ts` | repositories | Reads PokeAPI page by page, builds the `Pokemon` documents |
+| `src/repositories/PokeResourceRepository.ts` | repositories | Shares the requests for types, species and evolution chains during a run |
 | `src/repositories/PokeIndexRepository.ts` | repositories | Creates, fills, flushes and deletes indices, updates aliases |
 | `src/services/PokemonIndexationService.ts` | services | Runs one indexation, deletes the partial index on failure |
 | `src/services/AliasRotationService.ts` | services | Plans and applies the alias rotation and the cleanup |
@@ -200,7 +211,9 @@ Damage relations: `immune` (×0), `twice_resistant` (×0.25), `resistant` (×0.5
 
 **Read PokeAPI once.** PokeAPI asks its clients to cache its answers. The indexer reads it in one pass, and the API never calls it at runtime.
 
-More context in [ADR-011](../ADR.md#adr-011--indexer-en-commonjs-et-image-docker-multi-stage), [ADR-012](../ADR.md#adr-012--rotation-des-alias-latest_pokenode--previous_pokenode) and [ADR-013](../ADR.md#adr-013--client-http-unique-ky-via-le-connecteur-pokeapi).
+**Request each shared resource once.** Many Pokémon share a type, a species or an evolution chain. The cache keeps the promise, not the answer: the 200 Pokémon of a page start at the same time, before any answer arrives, so caching answers alone would not help within a page. The cache only lives for one run, so each run still reads fresh data.
+
+More context in [ADR-011](../ADR.md#adr-011--indexer-en-commonjs-et-image-docker-multi-stage), [ADR-012](../ADR.md#adr-012--rotation-des-alias-latest_pokenode--previous_pokenode), [ADR-013](../ADR.md#adr-013--client-http-unique-ky-via-le-connecteur-pokeapi) and [ADR-020](../ADR.md#adr-020--coalescence-des-requêtes-pokeapi-dans-pokeresourcerepository).
 
 ---
 
@@ -219,7 +232,7 @@ Le schéma en haut de page montre une exécution.
 
 1. **Connexion.** Le connecteur Elasticsearch ping le cluster ; l'exécution s'arrête s'il est injoignable.
 2. **Création de l'index.** Un nouvel index `pokenode_<timestamp>` est créé avec un shard, les settings d'analyse (autocomplétion sur le nom, normalizer en minuscules) et un mapping strict.
-3. **Lecture de PokeAPI.** La liste des Pokémon est lue page par page, 200 par 200. Pour chaque Pokémon d'une page, en parallèle, l'indexer récupère le Pokémon, ses types et son espèce, puis sa chaîne d'évolution.
+3. **Lecture de PokeAPI.** La liste des Pokémon est lue page par page, 200 par 200. Pour chaque Pokémon d'une page, en parallèle, l'indexer récupère le Pokémon, ses types et son espèce, puis sa chaîne d'évolution. Les types, les espèces et les chaînes d'évolution sont communs à de nombreux Pokémon : chacun n'est demandé qu'une fois par exécution (voir [Appels à PokeAPI](#appels-à-pokeapi)).
 4. **Transformation.** Chaque réponse devient un document `Pokemon` : statistiques de base, types avec leur icône, génération, résistances aux 18 types d'attaque, évolutions directes et pré-évolution.
 5. **Indexation.** Chaque page est envoyée en une requête bulk, avec l'id du Pokémon comme id de document. La moindre erreur sur un élément fait échouer l'exécution.
 6. **Flush** de l'index une fois toutes les pages écrites.
@@ -320,13 +333,23 @@ Dans Docker Compose, `POKE_STORE_URL=http://elasticsearch:9200` et `POKE_API_URL
 
 #### Appels à PokeAPI
 
-| Requête | Quand |
-|---|---|
-| `GET pokemon?offset=N&limit=200` | Une fois par page |
-| `GET pokemon/{id}` | Une fois par Pokémon |
-| `GET type/{id}` | Une fois par type du Pokémon (1 ou 2) |
-| `GET pokemon-species/{id}` | Une fois par Pokémon |
-| `GET evolution-chain/{id}` | Une fois par Pokémon |
+| Requête | Quand | Appels par exécution (mesurés le 2026-11-23) |
+|---|---|---|
+| `GET pokemon?offset=N&limit=200` | Une fois par page | 7 |
+| `GET pokemon/{id}` | Une fois par Pokémon | 1 351 |
+| `GET type/{id}` | Une fois par type distinct | 18 |
+| `GET pokemon-species/{id}` | Une fois par espèce distincte | 1 025 |
+| `GET evolution-chain/{id}` | Une fois par chaîne d'évolution distincte | 540 |
+| **Total** | | **2 941** |
+
+Les types, les espèces et les chaînes d'évolution passent par `PokeResourceRepository`, qui garde la promesse de chaque URL pendant toute l'exécution :
+
+- les Pokémon d'une même page qui demandent la même ressource au même moment partagent une seule requête ;
+- les pages suivantes reçoivent la réponse déjà obtenue, sans nouvel appel ;
+- une requête en échec est retirée du cache, et l'appel suivant la retente ;
+- le cache est vidé à la fin de la liste ou quand l'exécution échoue.
+
+Sans ce cache, une exécution faisait 6 176 appels. Le cache occupe environ 40 Mo de heap pendant une exécution, surtout pour les espèces.
 
 #### Document indexé
 
@@ -359,6 +382,7 @@ Relations de dégâts : `immune` (×0), `twice_resistant` (×0,25), `resistant` 
 | `src/connectors/PokeAPIConnector.ts` | connectors | Client `ky` sur l'URL de PokeAPI |
 | `src/connectors/PokeStoreConnector.ts` | connectors | Client Elasticsearch |
 | `src/repositories/PokeRepository.ts` | repositories | Lit PokeAPI page par page, construit les documents `Pokemon` |
+| `src/repositories/PokeResourceRepository.ts` | repositories | Partage les requêtes de types, d'espèces et de chaînes d'évolution pendant une exécution |
 | `src/repositories/PokeIndexRepository.ts` | repositories | Crée, remplit, flush et supprime les index, met à jour les alias |
 | `src/services/PokemonIndexationService.ts` | services | Exécute une indexation, supprime l'index partiel en cas d'échec |
 | `src/services/AliasRotationService.ts` | services | Planifie et applique la rotation des alias et le nettoyage |
@@ -375,4 +399,6 @@ Relations de dégâts : `immune` (×0), `twice_resistant` (×0,25), `resistant` 
 
 **Lire PokeAPI une seule fois.** PokeAPI demande à ses clients de mettre ses réponses en cache. L'indexer la lit en une passe, et l'API ne l'appelle jamais à l'exécution.
 
-Plus de contexte dans [ADR-011](../ADR.md#adr-011--indexer-en-commonjs-et-image-docker-multi-stage), [ADR-012](../ADR.md#adr-012--rotation-des-alias-latest_pokenode--previous_pokenode) et [ADR-013](../ADR.md#adr-013--client-http-unique-ky-via-le-connecteur-pokeapi).
+**Demander une seule fois chaque ressource partagée.** De nombreux Pokémon partagent un type, une espèce ou une chaîne d'évolution. Le cache garde la promesse, pas la réponse : les 200 Pokémon d'une page démarrent en même temps, avant toute réponse, et un cache des seules réponses ne servirait à rien à l'intérieur d'une page. Le cache ne vit que le temps d'une exécution, donc chaque exécution relit des données à jour.
+
+Plus de contexte dans [ADR-011](../ADR.md#adr-011--indexer-en-commonjs-et-image-docker-multi-stage), [ADR-012](../ADR.md#adr-012--rotation-des-alias-latest_pokenode--previous_pokenode), [ADR-013](../ADR.md#adr-013--client-http-unique-ky-via-le-connecteur-pokeapi) et [ADR-020](../ADR.md#adr-020--coalescence-des-requêtes-pokeapi-dans-pokeresourcerepository).

@@ -1,4 +1,5 @@
 import { pokeApiConnector } from "../connectors";
+import PokeResourceRepository from "./PokeResourceRepository";
 import {
     DamageRelation,
     Resistance,
@@ -93,15 +94,16 @@ export default class PokeRepository {
                 [...pokemon.types]
                     .sort((a, b) => a.slot - b.slot)
                     .map(({ type }) =>
-                        pokeApiConnector.client.get<ApiType>(type.url).json(),
+                        PokeResourceRepository.get<ApiType>(type.url),
                     ),
             ),
-            pokeApiConnector.client.get<ApiSpecies>(pokemon.species.url).json(),
+            PokeResourceRepository.get<ApiSpecies>(pokemon.species.url),
         ]);
 
-        const evolutionChain = await pokeApiConnector.client
-            .get<ApiEvolutionChain>(species.evolution_chain.url)
-            .json();
+        const evolutionChain =
+            await PokeResourceRepository.get<ApiEvolutionChain>(
+                species.evolution_chain.url,
+            );
 
         const apiEvolutions: Evolution[] = (
             findChainLink(evolutionChain.chain, species.name)?.evolves_to ?? []
@@ -149,25 +151,29 @@ export default class PokeRepository {
         };
     }
     static async *getPokemons() {
-        let offset = 0;
-        while (true) {
-            const pokemons = await pokeApiConnector.client
-                .get<{
-                    count: number;
-                    next: string;
-                    previous: string | null;
-                    results: { name: string; url: string }[];
-                }>(`pokemon?offset=${offset}&limit=${FETCH_BATCH_SIZE}`)
-                .json();
-            if (pokemons.results.length === 0) return;
-            const decoratedPokemons = await Promise.all(
-                pokemons.results.map(pokemon =>
-                    PokeRepository.fetchPokemon(pokemon.url),
-                ),
-            );
-            yield decoratedPokemons;
-            offset = offset + FETCH_BATCH_SIZE;
-            if (pokemons.results.length < FETCH_BATCH_SIZE) return;
+        try {
+            let offset = 0;
+            while (true) {
+                const pokemons = await pokeApiConnector.client
+                    .get<{
+                        count: number;
+                        next: string;
+                        previous: string | null;
+                        results: { name: string; url: string }[];
+                    }>(`pokemon?offset=${offset}&limit=${FETCH_BATCH_SIZE}`)
+                    .json();
+                if (pokemons.results.length === 0) return;
+                const decoratedPokemons = await Promise.all(
+                    pokemons.results.map(pokemon =>
+                        PokeRepository.fetchPokemon(pokemon.url),
+                    ),
+                );
+                yield decoratedPokemons;
+                offset = offset + FETCH_BATCH_SIZE;
+                if (pokemons.results.length < FETCH_BATCH_SIZE) return;
+            }
+        } finally {
+            PokeResourceRepository.clear();
         }
     }
 }
