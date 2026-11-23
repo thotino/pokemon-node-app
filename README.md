@@ -76,7 +76,7 @@ Stack: `express`, `ajv`, `@elastic/elasticsearch`, `ky`, `json2md`, `config`. Ro
 
 A React 18 single-page app in TypeScript, built with Vite and served by nginx.
 
-- Responsive grid of Pokémon cards (image, HP, Attack, Defense, Speed), as cards or as a list.
+- Responsive grid of Pokémon cards (image, HP, Attack, Defense, Speed).
 - Search by name, filter by type, server-side pagination. Page, search and view are kept in the URL.
 - Battle selection: pick 2 Pokémon, open the arena (`?view=battle`), read the narration as it is streamed, see the winner in a banner.
 - Light and dark themes.
@@ -190,10 +190,10 @@ Every Pokémon, written by the API into its working directory:
 curl http://localhost:3001/contents/all
 ```
 
-The route answers `202` with a `jobId` and runs the export in the background. The files go to `/app/tmp/<jobId>/` in the `api` container, stored in the `api_exports` volume. Copy them to the host:
+The route answers `202` with a `jobId` and runs the export in the background. The files go to `/app/tmp/pokemon-node-api/<jobId>/` in the `api` container, stored in the `api_exports` volume. Copy them to the host:
 
 ```sh
-docker compose cp api:/app/tmp/<jobId> ./pokemon-export
+docker compose cp api:/app/tmp/pokemon-node-api/<jobId> ./pokemon-export
 ```
 
 #### How to create the VirtualBrain chatbot
@@ -388,7 +388,7 @@ Stack : `express`, `ajv`, `@elastic/elasticsearch`, `ky`, `json2md`, `config`. R
 
 Une application monopage React 18 en TypeScript, construite avec Vite et servie par nginx.
 
-- Grille responsive de cartes Pokémon (image, PV, Attaque, Défense, Vitesse), en cartes ou en liste.
+- Grille responsive de cartes Pokémon (image, PV, Attaque, Défense, Vitesse).
 - Recherche par nom, filtre par type, pagination côté serveur. La page, la recherche et la vue sont conservées dans l'URL.
 - Sélection de combat : choisir 2 Pokémon, ouvrir l'arène (`?view=battle`), lire la narration au fil du stream, voir le vainqueur dans un bandeau.
 - Thèmes clair et sombre.
@@ -502,10 +502,10 @@ Tous les Pokémon, écrits par l'API dans son dossier de travail :
 curl http://localhost:3001/contents/all
 ```
 
-La route répond `202` avec un `jobId` et lance l'export en arrière-plan. Les fichiers sont écrits dans `/app/tmp/<jobId>/` du conteneur `api`, stockés dans le volume `api_exports`. Pour les copier sur l'hôte :
+La route répond `202` avec un `jobId` et lance l'export en arrière-plan. Les fichiers sont écrits dans `/app/tmp/pokemon-node-api/<jobId>/` du conteneur `api`, stockés dans le volume `api_exports`. Pour les copier sur l'hôte :
 
 ```sh
-docker compose cp api:/app/tmp/<jobId> ./pokemon-export
+docker compose cp api:/app/tmp/pokemon-node-api/<jobId> ./pokemon-export
 ```
 
 #### Créer le chatbot VirtualBrain
