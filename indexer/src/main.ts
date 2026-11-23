@@ -20,6 +20,7 @@ async function onTermination(error?: Error) {
     if (error != null) {
         logger.error(error);
     }
+    process.exit(1);
 }
 if (require.main === module) {
     main()
