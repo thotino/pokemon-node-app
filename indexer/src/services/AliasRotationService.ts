@@ -1,7 +1,11 @@
 import { INDEX_PREFIX, LATEST_ALIAS, PREVIOUS_ALIAS } from "../constants";
 import { logger } from "../logger";
 import PokeIndexRepository from "../repositories/PokeIndexRepository";
-import { AliasAction, IndexWithAliases, RotationPlan } from "../types/index-alias";
+import {
+    AliasAction,
+    IndexWithAliases,
+    RotationPlan,
+} from "../types/index-alias";
 
 export default class AliasRotationService {
     static #indexTimestamp(indexName: string) {
