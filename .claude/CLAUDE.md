@@ -15,15 +15,20 @@ Tu interviens donc dans l'un des trois modules de ce système:
     * un worker qui remplit un index elasticsearch avec les données de pokémons depuis l'api public PokeAPI
 
 **Organisation du code**
+
 Chaque module suit un modèle en couches divisés en `connectors`/`repositories`/`services`/`controllers`.
 Les couches:
-* `connectors`: la couche transport
+* `connectors`: la couche transport. Cette couche gère les spécificités d'accès à une source de données.
 * `repositories`: la couche d'accès aux données, de construction des requêtes et de transformation des réponses en entités
-* `services`: la couche d'orchestration et de logique applicative. Cette couche ève les erreurs métiers.
-* `controllers`: la couche HTTP, de déclaration des routes, de validation des schémas, d'extraction des paramètres et délivrance des réponses
+* `services`: la couche d'orchestration et de logique applicative. Cette couche lève aussi les erreurs métiers.
+* `controllers`: la couche HTTP, de déclaration des routes, de validation des schémas, d'extraction des paramètres et délivrance des réponses et des erreurs HTTP
 
 **Tests**
-Les tests vont dans les sous-dossiers `__tests__`, au plus près des modules testés.
+
+Les tests vont dans les sous-dossiers `__tests__`, au plus près des modules testés et sont exécutés à l'aide du framework `vitest`.
+
+Bonnes pratiques de tests:
+
 * mocker la couche juste en dessous du module testé
 * nommer le mock en entier
 * vérifier le mock directement, sans fonction utilitaire qui relit ou filtre les appels
@@ -36,5 +41,5 @@ Après chaque modification dans un module, faire les vérifications suivantes:
 
 * Tests : `npm run test`
 * Linter : `npm run lint`
-* Build : `npm run build` (pas de typecheck séparé)
+* Build : `npm run build`
 * Formattage : `npm run prettier`
