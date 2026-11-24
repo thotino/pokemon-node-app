@@ -42,6 +42,7 @@ export default class ChatbotAuthRepository {
     static async #exchangeApiKey(): Promise<IChatbotTokens> {
         const response = (await chatbotConnector.client
             .post("v1/auth/api-key/token", {
+                timeout: 5_000,
                 json: { apiKey: chatbotConnector.apiKey },
             })
             .json()) as ChatbotTokenResponse;
@@ -53,6 +54,7 @@ export default class ChatbotAuthRepository {
     ): Promise<IChatbotTokens> {
         const response = (await chatbotConnector.client
             .post("v1/auth/api-key/refresh", {
+                timeout: 5_000,
                 json: {
                     refreshToken: current.refreshToken,
                     chatbotId: current.chatbotId,
@@ -71,7 +73,7 @@ export default class ChatbotAuthRepository {
             accessToken: response.accessToken,
             refreshToken: response.refreshToken,
             chatbotId: response.chatbotId,
-            expiresAt: Date.now() + response.expiresIn * 1000,
+            expiresAt: Date.now() + response.expiresIn * 1_000,
         };
     }
 }

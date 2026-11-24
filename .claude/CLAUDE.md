@@ -31,7 +31,7 @@ Bonnes pratiques de tests:
 
 * mocker la couche juste en dessous du module testé
 * nommer le mock en entier
-* vérifier le mock directement, sans fonction utilitaire qui relit ou filtre les appels
+* vérifier le mock directement, sans fonction utilitaire qui relit ou filtre les appels; éviter au maximum les fonctions helpers
 * déclarer `vi.mock("../module")`
 * utiliser `vi.mocked()` pour typer et configurer les mocks
 * pas de `vi.hoisted`

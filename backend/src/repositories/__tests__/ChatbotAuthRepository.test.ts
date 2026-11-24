@@ -67,11 +67,10 @@ function route({
     });
 }
 
-const EXCHANGE_CALL = [TOKEN_PATH, { json: { apiKey: "vb_ak_test" } }];
-
-function refreshCall(refreshToken: string, chatbotId = CHATBOT_ID) {
-    return [REFRESH_PATH, { json: { refreshToken, chatbotId } }];
-}
+const EXCHANGE_CALL = [
+    TOKEN_PATH,
+    expect.objectContaining({ json: { apiKey: "vb_ak_test" } }),
+];
 
 function advanceTime(offsetMs: number) {
     vi.setSystemTime(NOW.getTime() + offsetMs);
@@ -98,9 +97,12 @@ describe("ChatbotAuthRepository", () => {
 
             expect(
                 chatbotConnector.client.post,
-            ).toHaveBeenCalledExactlyOnceWith(TOKEN_PATH, {
-                json: { apiKey: "vb_ak_test" },
-            });
+            ).toHaveBeenCalledExactlyOnceWith(
+                TOKEN_PATH,
+                expect.objectContaining({
+                    json: { apiKey: "vb_ak_test" },
+                }),
+            );
             expect(tokens).toEqual({
                 accessToken: "token-access-1",
                 refreshToken: "token-refresh-1",
@@ -143,7 +145,15 @@ describe("ChatbotAuthRepository", () => {
 
             expect(vi.mocked(chatbotConnector.client.post).mock.calls).toEqual([
                 EXCHANGE_CALL,
-                refreshCall("token-refresh-1"),
+                [
+                    REFRESH_PATH,
+                    expect.objectContaining({
+                        json: {
+                            refreshToken: "token-refresh-1",
+                            chatbotId: CHATBOT_ID,
+                        },
+                    }),
+                ],
             ]);
             expect(tokens).toEqual({
                 accessToken: "refreshed-access-1",
@@ -172,7 +182,15 @@ describe("ChatbotAuthRepository", () => {
 
             expect(vi.mocked(chatbotConnector.client.post).mock.calls).toEqual([
                 EXCHANGE_CALL,
-                refreshCall("token-refresh-1"),
+                [
+                    REFRESH_PATH,
+                    expect.objectContaining({
+                        json: {
+                            refreshToken: "token-refresh-1",
+                            chatbotId: CHATBOT_ID,
+                        },
+                    }),
+                ],
             ]);
         });
 
@@ -187,8 +205,24 @@ describe("ChatbotAuthRepository", () => {
 
             expect(vi.mocked(chatbotConnector.client.post).mock.calls).toEqual([
                 EXCHANGE_CALL,
-                refreshCall("token-refresh-1"),
-                refreshCall("refreshed-refresh-1"),
+                [
+                    REFRESH_PATH,
+                    expect.objectContaining({
+                        json: {
+                            refreshToken: "token-refresh-1",
+                            chatbotId: CHATBOT_ID,
+                        },
+                    }),
+                ],
+                [
+                    REFRESH_PATH,
+                    expect.objectContaining({
+                        json: {
+                            refreshToken: "refreshed-refresh-1",
+                            chatbotId: CHATBOT_ID,
+                        },
+                    }),
+                ],
             ]);
             expect(tokens.accessToken).toBe("refreshed-access-2");
         });
@@ -208,8 +242,24 @@ describe("ChatbotAuthRepository", () => {
             expect(rotated.chatbotId).toBe("bot-2");
             expect(vi.mocked(chatbotConnector.client.post).mock.calls).toEqual([
                 EXCHANGE_CALL,
-                refreshCall("token-refresh-1"),
-                refreshCall("refreshed-refresh-1", "bot-2"),
+                [
+                    REFRESH_PATH,
+                    expect.objectContaining({
+                        json: {
+                            refreshToken: "token-refresh-1",
+                            chatbotId: CHATBOT_ID,
+                        },
+                    }),
+                ],
+                [
+                    REFRESH_PATH,
+                    expect.objectContaining({
+                        json: {
+                            refreshToken: "refreshed-refresh-1",
+                            chatbotId: "bot-2",
+                        },
+                    }),
+                ],
             ]);
         });
 
@@ -226,7 +276,15 @@ describe("ChatbotAuthRepository", () => {
 
             expect(vi.mocked(chatbotConnector.client.post).mock.calls).toEqual([
                 EXCHANGE_CALL,
-                refreshCall("token-refresh-1"),
+                [
+                    REFRESH_PATH,
+                    expect.objectContaining({
+                        json: {
+                            refreshToken: "token-refresh-1",
+                            chatbotId: CHATBOT_ID,
+                        },
+                    }),
+                ],
             ]);
             expect(new Set(results).size).toBe(1);
         });
@@ -240,7 +298,15 @@ describe("ChatbotAuthRepository", () => {
 
             expect(vi.mocked(chatbotConnector.client.post).mock.calls).toEqual([
                 EXCHANGE_CALL,
-                refreshCall("token-refresh-1"),
+                [
+                    REFRESH_PATH,
+                    expect.objectContaining({
+                        json: {
+                            refreshToken: "token-refresh-1",
+                            chatbotId: CHATBOT_ID,
+                        },
+                    }),
+                ],
                 EXCHANGE_CALL,
             ]);
             expect(tokens.accessToken).toBe("token-access-2");
@@ -255,7 +321,15 @@ describe("ChatbotAuthRepository", () => {
 
             expect(vi.mocked(chatbotConnector.client.post).mock.calls).toEqual([
                 EXCHANGE_CALL,
-                refreshCall("token-refresh-1"),
+                [
+                    REFRESH_PATH,
+                    expect.objectContaining({
+                        json: {
+                            refreshToken: "token-refresh-1",
+                            chatbotId: CHATBOT_ID,
+                        },
+                    }),
+                ],
                 EXCHANGE_CALL,
             ]);
             expect(tokens.accessToken).toBe("token-access-2");
@@ -311,7 +385,15 @@ describe("ChatbotAuthRepository", () => {
             expect(error.response.status).toBe(503);
             expect(vi.mocked(chatbotConnector.client.post).mock.calls).toEqual([
                 EXCHANGE_CALL,
-                refreshCall("token-refresh-1"),
+                [
+                    REFRESH_PATH,
+                    expect.objectContaining({
+                        json: {
+                            refreshToken: "token-refresh-1",
+                            chatbotId: CHATBOT_ID,
+                        },
+                    }),
+                ],
                 EXCHANGE_CALL,
             ]);
         });
@@ -344,7 +426,15 @@ describe("ChatbotAuthRepository", () => {
             expect(current).toBe(fresh);
             expect(vi.mocked(chatbotConnector.client.post).mock.calls).toEqual([
                 EXCHANGE_CALL,
-                refreshCall("token-refresh-1"),
+                [
+                    REFRESH_PATH,
+                    expect.objectContaining({
+                        json: {
+                            refreshToken: "token-refresh-1",
+                            chatbotId: CHATBOT_ID,
+                        },
+                    }),
+                ],
             ]);
         });
 
