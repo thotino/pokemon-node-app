@@ -9,6 +9,7 @@ import type {
     ServiceErrorInterface,
     WebserverErrorInterface,
 } from "../../types/error";
+import { logger } from "../../logger";
 
 export function handleError(
     error: unknown,
@@ -21,7 +22,7 @@ export function handleError(
     }
     const webserverError = toWebserverError(error);
     if (webserverError.cause instanceof InternalServerError) {
-        console.error("Request failed:", error);
+        logger.error("Request failed:", error);
     }
     return res
         .status(webserverError.statusCode)

@@ -31,6 +31,9 @@ function startServer(server: Server, port: number): Promise<void> {
 
 function stopServer(server: Server, delayMs: number): Promise<void> {
     return new Promise((resolve, reject) => {
+        if (!server.listening) {
+            resolve();
+        }
         const timer = setTimeout(() => server.closeAllConnections(), delayMs);
         server.close(error => {
             clearTimeout(timer);

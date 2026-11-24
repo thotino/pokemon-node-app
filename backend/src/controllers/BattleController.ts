@@ -5,6 +5,7 @@ import { battleRequestBodySchema } from "./schemas/battleSchemas";
 import { validateRequest } from "./middlewares/validateRequest";
 import type { BattleRequest } from "../types/battle";
 import type { ValidatedLocals } from "../types/validation";
+import { logger } from "../logger";
 
 const BattleController = Router();
 
@@ -51,7 +52,7 @@ BattleController.post(
             await pipeline(battle.stream, res);
         } catch (error) {
             if (!controller.signal.aborted) {
-                console.error("Battle stream failed:", error);
+                logger.error("Battle stream failed:", error);
             }
             res.destroy();
         }

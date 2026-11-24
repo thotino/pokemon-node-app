@@ -19,13 +19,14 @@ async function onTermination(error?: Error) {
     await stopConnectors();
     if (error != null) {
         logger.error(error);
+        process.exit(1);
     }
-    process.exit(1);
+    process.exit(0);
 }
 if (require.main === module) {
     main()
         .then(() => onTermination())
         .catch(onTermination);
-    process.on("SIGINT", onTermination);
-    process.on("SIGTERM", onTermination);
+    process.once("SIGINT", () => onTermination());
+    process.once("SIGTERM", () => onTermination());
 }
