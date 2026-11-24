@@ -1,5 +1,10 @@
 {
-    "service": {},
+    "service": {
+        "gracefulShutdownDelayInSeconds": {
+            "__name": "GRACEFUL_SHUTDOWN_DELAY_IN_SECONDS",
+            "__format": "number"
+        }
+    },
     "webserver": {
         "port": {
             "__name": "PORT",

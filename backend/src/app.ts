@@ -7,6 +7,7 @@ import { PokemonController } from "./controllers/PokemonController";
 import { ContentController } from "./controllers/ContentsController";
 import { BattleController } from "./controllers/BattleController";
 import { handleError } from "./controllers/middlewares/handleError";
+import { shutdown, start } from "./manager";
 
 /** App */
 const app = express();
@@ -44,6 +45,32 @@ app.use(handleError);
 /**
  * Start server
  */
-httpServer.listen(config.webserver.port, () => {
+async function main() {
+    await start(httpServer, config.webserver.port);
     console.debug("Server started on port:", config.webserver.port);
-});
+}
+
+/**
+ * Graceful shutdown
+ */
+async function onTermination() {
+    try {
+        await shutdown(
+            httpServer,
+            config.service.gracefulShutdownDelayInSeconds * 1000,
+        );
+        console.info("Server stopped");
+        process.exit(0);
+    } catch (error) {
+        console.error("Server failed to stop:", error);
+        process.exit(1);
+    }
+}
+if (require.main === module) {
+    main().catch(error => {
+        console.error("Server failed to start:", error);
+        process.exit(1);
+    });
+    process.once("SIGTERM", onTermination);
+    process.once("SIGINT", onTermination);
+}
