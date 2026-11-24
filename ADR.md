@@ -23,6 +23,8 @@ Journal des décisions d'architecture de `pokemon-node-app`. Chaque décision es
 | [017](#adr-017--validation-des-requêtes-avec-ajv) | Validation des requêtes avec ajv | backend | Acceptée | 2026-11-20 |
 | [018](#adr-018--erreurs-métier-converties-en-erreurs-http-par-handleerror) | Erreurs métier converties en erreurs HTTP par `handleError` | backend | Acceptée | 2026-11-20 |
 | [019](#adr-019--authentification-du-chatbot-isolée-dans-chatbotauthrepository) | Authentification du chatbot isolée dans `ChatbotAuthRepository` | backend | Acceptée | 2026-11-22 |
+| [020](#adr-020--coalescence-des-requêtes-pokeapi-dans-pokeresourcerepository) | Coalescence des requêtes PokeAPI dans `PokeResourceRepository` | indexer | Acceptée | 2026-11-23 |
+| [021](#adr-021--connexion-des-connecteurs-au-démarrage-et-arrêt-propre-du-backend) | Connexion des connecteurs au démarrage et arrêt propre du backend | backend | Acceptée | 2026-11-24 |
 
 ---
 
@@ -562,3 +564,38 @@ L'indexer faisait 6 176 appels à PokeAPI par exécution. `PokeRepository.fetchP
 - Un même `ApiType` ou `ApiEvolutionChain` sert à construire plusieurs Pokémon. Ces objets ne doivent jamais être modifiés.
 - Une erreur sur une ressource partagée fait échouer tous les Pokémon qui l'attendent. Une seule erreur suffit déjà à faire échouer l'exécution, comme avant.
 - L'état est statique et commun au processus : l'indexer ne doit lancer qu'une exécution à la fois.
+
+---
+
+## ADR-021 : Connexion des connecteurs au démarrage et arrêt propre du backend
+
+**Statut** : Acceptée, 2026-11-24.
+
+**Contexte**
+`app.ts` appelait `httpServer.listen()` sans connecter les connecteurs : `PokeStoreConnector.connect()` (ping d'Elasticsearch) n'était jamais appelé. Si Elasticsearch était injoignable, l'API démarrait quand même et chaque requête échouait en 500. Aucun signal n'était intercepté : sur un `SIGTERM` (`docker compose stop`, redéploiement, redémarrage de nodemon), le process s'arrêtait aussitôt, coupait les requêtes en cours, y compris les streams de `POST /battles`, et ne fermait pas le client Elasticsearch. La clé `service.gracefulShutdownDelayInSeconds` était typée dans `config.ts` mais absente des fichiers de config.
+
+**Décision**
+- **Nouveau module `src/manager.ts`**, sous forme de fonctions et non de classe, comme les middlewares :
+  - `start(server, port)` connecte tous les connecteurs, puis ouvre le port. Aucune requête n'est acceptée tant qu'Elasticsearch n'a pas répondu au ping ;
+  - `shutdown(server, delayMs)` appelle `server.close()`, qui refuse les nouvelles connexions et attend la fin des requêtes en cours. Au-delà de `delayMs`, `server.closeAllConnections()` coupe les connexions restantes. Les connecteurs ne sont fermés qu'ensuite ;
+  - les fonctions internes (`startConnectors`, `stopConnectors`, `startServer`, `stopServer`) ne sont pas exportées. Les connecteurs sont parcourus avec `Object.values(connectors)`, comme dans `indexer/src/main.ts` ;
+  - le module n'appelle ni `process.exit` ni `process.on`.
+- **`app.ts`** suit le modèle de l'indexer : une fonction `main()` et un bloc `if (require.main === module)`.
+  - **Démarrage** : si un connecteur ne se connecte pas, l'erreur est loguée et le process sort en code 1 sans ouvrir le port. Il n'y a pas de nouvelle tentative : c'est à l'orchestrateur de relancer le conteneur.
+  - **Arrêt** : `SIGTERM` et `SIGINT` déclenchent `onTermination`, qui appelle `shutdown()` puis sort en code 0, ou 1 si l'arrêt échoue. Les handlers sont posés avec `process.once` : un second Ctrl+C reprend le comportement par défaut de Node et tue le process.
+- **Délai d'arrêt** : `service.gracefulShutdownDelayInSeconds` vaut 10 dans `config/default.json`. La variable d'environnement `GRACEFUL_SHUTDOWN_DELAY_IN_SECONDS` le surcharge.
+- **nodemon** : `"signal": "SIGTERM"` dans `nodemon.json`. Par défaut, nodemon envoie `SIGUSR2`, et ses redémarrages ne passaient donc pas par l'arrêt propre.
+- **Pas de tests pour `manager.ts`** : le comportement a été vérifié sous Node 26, avec un faux Elasticsearch, sur `dist/app.js` et sous nodemon :
+
+  | Scénario | Résultat |
+  |---|---|
+  | Elasticsearch injoignable au démarrage | `Server failed to start`, code 1, port jamais ouvert |
+  | `SIGTERM` pendant une recherche de 2 s, délai de 10 s | la requête reçoit son 200, `Server stopped`, code 0 après 2,2 s |
+  | `SIGTERM` pendant une recherche de 5 s, délai de 1 s | connexion client coupée à 1 s, mais sortie en code 0 après 5,3 s seulement |
+  | `rs` dans nodemon | `SIGTERM` reçu, `Server stopped`, puis redémarrage |
+
+**Conséquences**
+- Un Elasticsearch absent se voit dès le démarrage, et non plus à la première requête.
+- Un combat en cours a jusqu'à 10 s pour se terminer. Au-delà, la coupure de la connexion déclenche le `AbortController` de `BattleController`, qui annule l'appel au chatbot.
+- **Le délai ne borne pas la durée totale de l'arrêt.** Couper la connexion HTTP n'annule pas une recherche Elasticsearch déjà partie, et `pokeStoreConnector.close()` attend la fin de cette recherche. Le client Elasticsearch n'a pas de `requestTimeout` : un Elasticsearch bloqué peut retarder l'arrêt sans limite. Ajouter ce timeout fera l'objet d'une décision séparée.
+- Docker envoie `SIGKILL` 10 s après `SIGTERM` par défaut, soit autant que le délai applicatif. Il faudra un `stop_grace_period` supérieur au délai pour le service `api` dans `docker-compose.yml`, et un `restart: on-failure` pour relancer l'API quand le démarrage échoue. Ni l'un ni l'autre n'est en place.
