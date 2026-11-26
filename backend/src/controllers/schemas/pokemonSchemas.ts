@@ -7,6 +7,7 @@ import {
     MAX_KEYWORDS_LENGTH,
     MAX_PAGE_SIZE,
     MAX_POKEMON_TYPES,
+    MIN_KEYWORDS_LENGTH,
     NON_BLANK_TOKEN_PATTERN,
     POKEMON_ID_PATTERN,
 } from "../../constants";
@@ -17,6 +18,7 @@ const pokemonSearchQuerySchema: JSONSchemaType<PokemonSearchQuery> = {
         q: {
             type: "string",
             maxLength: MAX_KEYWORDS_LENGTH,
+            minLength: MIN_KEYWORDS_LENGTH,
             nullable: true,
         },
         types: {

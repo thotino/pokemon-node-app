@@ -74,6 +74,7 @@ describe("PokemonController", () => {
             ["an empty type", "types=", "/types/0"],
             ["duplicated types", "types=fire&types=fire", "/types"],
             ["repeated keywords", "q=a&q=b", "/q"],
+            ["a single letter keyword", "q=a", "/q"],
             ["an unknown parameter", "foo=bar", "/foo"],
         ])("rejects %s with a 400", async (_label, query, path) => {
             const response = await request(app).get(`/pokemons?${query}`);
