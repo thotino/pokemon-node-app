@@ -1,22 +1,14 @@
-import {
-    AggregationsStringTermsAggregate,
-    SearchRequest,
-    SearchResponse,
-    SearchTotalHits,
-} from "@elastic/elasticsearch/lib/api/types";
 import { pokeStoreConnector } from "../connectors";
 import Pokemon from "../entities/Pokemon";
 import { IPokemon } from "../types/pokemon";
-import {
-    ITypeBucket,
-    PokemonSearchRequest,
-    PokemonSearchResponse,
-} from "../types/search-pokemons";
-import PokemonTypeFacet from "../entities/PokemonTypeFacet";
-type PokemonTypeAggregations = {
-    types: AggregationsStringTermsAggregate;
-};
+import { PokemonSearchRequest } from "../types/search-pokemons";
+import ElasticsearchPokemonSearchQueryBuilder from "./ElasticsearchPokemonSearchQueryBuilder";
+import ElasticsearchPokemonSearchResponseParser, {
+    PokemonTypeAggregations,
+} from "./ElasticsearchPokemonSearchResponseParser";
+
 const INDEX_NAME = "latest_pokenode";
+
 export default class PokeRepository {
     static async getById(id: string): Promise<Pokemon | null> {
         const result = await pokeStoreConnector.client.get<IPokemon>(
@@ -27,102 +19,9 @@ export default class PokeRepository {
             ? new Pokemon(result._source)
             : null;
     }
-    static #buildQuery(request: PokemonSearchRequest) {
-        if (request.keywords != null) {
-            return {
-                bool: {
-                    should: [
-                        {
-                            match: {
-                                name: {
-                                    query: request.keywords,
-                                    fuzziness: "AUTO",
-                                    prefix_length: 1,
-                                    boost: 2,
-                                },
-                            },
-                        },
-                        { match: { "name.autocomplete": request.keywords } },
-                    ],
-                    minimum_should_match: 1,
-                },
-            };
-        }
-        return { match_all: {} };
-    }
-    static #buildPostFilter(request: PokemonSearchRequest) {
-        if (Array.isArray(request.types) && request.types.length != 0) {
-            return { terms: { "apiTypes.name": request.types } };
-        }
-    }
-    static #buildAggs() {
-        return {
-            types: {
-                terms: { field: "apiTypes.name", size: 30 },
-            },
-        };
-    }
-    static #buildSort(request: PokemonSearchRequest) {
-        const sortingCriteria: { [k: string]: string }[] = [{ id: "asc" }];
-        if (request.keywords != null) {
-            sortingCriteria.unshift({ _score: "desc" });
-        }
-        return sortingCriteria;
-    }
-    static #buildSearchQuery(request: PokemonSearchRequest): SearchRequest {
-        const postFilterClause = PokeRepository.#buildPostFilter(request);
-        return {
-            _source: [
-                "id",
-                "pokedexId",
-                "name",
-                "image",
-                "sprite",
-                "stats",
-                "apiTypes",
-            ],
-            from: request.from,
-            size: request.size,
-            query: PokeRepository.#buildQuery(request),
-            ...(postFilterClause != null
-                ? { post_filter: postFilterClause }
-                : {}),
-            aggs: PokeRepository.#buildAggs(),
-            sort: PokeRepository.#buildSort(request),
-        };
-    }
-    static #parse(
-        request: PokemonSearchRequest,
-        response: SearchResponse<IPokemon, PokemonTypeAggregations>,
-    ): PokemonSearchResponse {
-        return {
-            from: request.from,
-            size: request.size,
-            total: (response.hits.total as SearchTotalHits)?.value ?? 0,
-            items: response.hits.hits
-                .filter(hit => hit._source != null)
-                .map(hit => new Pokemon(hit._source!)),
-            filters: PokeRepository.#parseFilters(request, response),
-        };
-    }
-    static #parseFilters(
-        request: PokemonSearchRequest,
-        response: SearchResponse<IPokemon, PokemonTypeAggregations>,
-    ): PokemonTypeFacet[] {
-        const buckets = (response.aggregations?.types.buckets ??
-            []) as ITypeBucket[];
-        const facets = buckets.map(bucket =>
-            PokemonTypeFacet.fromBucket(bucket),
-        );
-        const known = new Set(facets.map(facet => facet.name));
-        const missing = [...new Set(request.types ?? [])]
-            .filter(type => !known.has(type))
-            .map(type => new PokemonTypeFacet(type, 0));
-        return [...facets, ...missing];
-    }
 
     static async getAll(request: PokemonSearchRequest) {
-        const query = PokeRepository.#buildSearchQuery(request);
+        const query = ElasticsearchPokemonSearchQueryBuilder.build(request);
         const result = await pokeStoreConnector.client.search<
             IPokemon,
             PokemonTypeAggregations
@@ -130,7 +29,7 @@ export default class PokeRepository {
             index: INDEX_NAME,
             ...query,
         });
-        return PokeRepository.#parse(request, result);
+        return ElasticsearchPokemonSearchResponseParser.parse(request, result);
     }
 
     static async *getAllByScrolling(
